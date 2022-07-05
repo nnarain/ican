@@ -1,0 +1,11 @@
+[package]
+name = "cansniffer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+socketcan = {path = "../external/socketcan-rs"}
+embedded-hal = "1.0.0-alpha.8"
+anyhow = "1.0"
+ctrlc = "3.2.2"
+clap = {version = "3.2.8", features = ["derive"]}
