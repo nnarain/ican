@@ -8,8 +8,8 @@
 use anyhow::Context;
 use clap::Parser;
 
-use socketcan::CanSocket;
-use embedded_hal::can::{blocking::Can, Frame, Id};
+use socketcan::{CanSocket, CanFrame};
+use embedded_hal::can::{blocking::Can, Frame, Id, StandardId};
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -44,7 +44,15 @@ fn main() -> anyhow::Result<()> {
 
     while !shutdown.load(Ordering::Relaxed) {
         match socket.receive() {
-            Ok(frame) => println!("{}", frame_to_string(&frame)),
+            Ok(frame) => {
+                println!("{}", frame_to_string(&frame));
+
+                let id = StandardId::new(0x1f2).expect("Failed to create ID");
+                
+                if let Some(echo_frame) = CanFrame::new(id, frame.data()) {
+                    socket.transmit(&echo_frame).expect("Failed to echo recieved frame");
+                }
+            },
             Err(_) => {},
         }
     }
