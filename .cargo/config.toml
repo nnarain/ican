@@ -1,0 +1,2 @@
+[alias]
+canutils = "run --bin canutils --"

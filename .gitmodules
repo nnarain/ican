@@ -1,3 +1,6 @@
 [submodule "external/socketcan-rs"]
 	path = external/socketcan-rs
 	url = https://github.com/nnarain/socketcan-rs.git
+[submodule "external/tokio-socketcan"]
+	path = external/tokio-socketcan
+	url = https://github.com/nnarain/tokio-socketcan.git
