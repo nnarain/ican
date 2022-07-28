@@ -6,8 +6,7 @@ use anyhow::Context;
 // @date Jul 15 2022
 //
 use tokio;
-use tokio_socketcan::{CANSocket, CanFrame};
-use futures_util::StreamExt;
+use tokio_socketcan::CANSocket;
 use clap::Parser;
 
 use canutils::{CommandContext, Args, Command, action};
@@ -19,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let device = args.device;
 
-    let mut socket = CANSocket::open(&device)
+    let socket = CANSocket::open(&device)
                                 .with_context(|| format!("Failed to open CAN interface {}", device))?;
 
     let ctx = CommandContext {socket, device};

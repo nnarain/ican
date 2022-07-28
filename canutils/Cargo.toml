@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["net"] }
+tokio = { version = "1", features = ["net", "time"] }
 tokio-socketcan = { path = "../external/tokio-socketcan" }
 futures-timer = "3.0"
 futures-util = "0.3"
@@ -13,3 +13,5 @@ anyhow = "1.0"
 ctrlc = "3.2.2"
 clap = {version = "3.2.8", features = ["derive"]}
 nb = "1.0"
+tui = "0.18.0"
+crossterm = "0.23"
