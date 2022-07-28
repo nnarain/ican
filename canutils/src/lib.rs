@@ -7,8 +7,6 @@
 pub mod action;
 pub mod utils;
 
-use crate::action::{dump};
-
 use tokio_socketcan::CANSocket;
 
 use clap::{Parser, Subcommand};

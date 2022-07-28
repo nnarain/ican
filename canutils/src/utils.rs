@@ -5,17 +5,29 @@
 // @date Jul 19 2022
 //
 
-use embedded_hal::can::{Frame, Id, StandardId, ExtendedId};
+use embedded_hal::can::Id;
 
-// impl From<Id> for u32 {
-//     fn from(_: Id) -> Self {
-//         0
-//     }
-// }
 
-pub fn id_to_raw<F: Frame>(frame: &F) -> u32 {
-    match frame.id() {
+pub fn id_to_raw(id: &Id) -> u32 {
+    match id {
         Id::Standard(id) => id.as_raw() as u32,
         Id::Extended(id) => id.as_raw(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_id_standard() {
+        let id: Id = StandardId::new(0x1F1).expect("Failed to created ID").into();
+        assert_eq!(id_to_raw(&id), 0x1F1u32)
+    }
+
+    #[test]
+    fn check_id_extended() {
+        let id: Id = ExtendedId::new(0x1F1).expect("Failed to created ID").into();
+        assert_eq!(id_to_raw(&id), 0x1F1u32)
     }
 }
