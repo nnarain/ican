@@ -50,9 +50,16 @@ impl TrackedFrame {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum DataFormatMode {
+    Hex,
+    Binary,
+}
+
 struct App {
     pub frames: BTreeMap<u32, TrackedFrame>,
     pub device_name: String,
+    pub format_mode: DataFormatMode,
 }
 
 impl App {
@@ -60,6 +67,7 @@ impl App {
         Self {
             frames: BTreeMap::default(),
             device_name,
+            format_mode: DataFormatMode::Hex,
         }
     }
 }
@@ -73,6 +81,15 @@ impl App {
         let delta = self.frames.get(&id).map_or(0.0, |f| (now - f.recv_time).as_secs_f32());
 
         self.frames.insert(id, TrackedFrame::new(frame, now, delta));
+    }
+
+    pub fn cycle_display_format(&mut self) {
+        // Step through format modes
+        // TODO: Use an iterator here?
+        self.format_mode = match self.format_mode {
+            DataFormatMode::Hex => DataFormatMode::Binary,
+            DataFormatMode::Binary => DataFormatMode::Hex,
+        };
     }
 }
 
@@ -114,16 +131,18 @@ async fn ui_task(app: Arc<Mutex<App>>, tick_rate: u64) -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     loop {
+        // The below is in a new scope block so app is out of scope before `await` is called.
         {
-            let app = app.lock().unwrap();
+            let mut app = app.lock().unwrap();
             terminal.draw(|f| ui(f, &*app))?;
-        }
 
-        if crossterm::event::poll(Duration::from_millis(10))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    _ => {}
+            if crossterm::event::poll(Duration::from_millis(10))? {
+                if let Event::Key(key) = event::read()? {
+                    match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Char('t') => app.cycle_display_format(),
+                        _ => {}
+                    }
                 }
             }
         }
@@ -154,12 +173,19 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
         )
         .split(f.size());
 
+    let format_mode = app.format_mode;
+
     let items: Vec<ListItem> = app.frames.iter().map(|(_, frame)| {
         let TrackedFrame { frame, recv_time: _, delta } = frame;
 
         let id = utils::id_to_raw(&frame.id());
         let dlc = frame.dlc();
-        let data_string = frame.data().iter().fold(String::from(""), |a, b| format!("{} {:02X}", a, b));
+        let data_string = frame.data().iter().fold(String::from(""), |a, b| {
+            match format_mode {
+                DataFormatMode::Hex => format!("{} {:02X}", a, b),
+                DataFormatMode::Binary => format!("{} {:08b}", a, b),
+            }
+        });
 
         let line = Span::from(
                         Span::styled(format!("{:.3} {:08X} [{}] {}", delta, id, dlc, data_string),
