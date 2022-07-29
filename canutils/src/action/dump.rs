@@ -79,12 +79,13 @@ impl App {
 pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     let socket = ctx.socket;
     let device = ctx.device;
+    let tick_rate = ctx.tick_rate;
 
     // let tick_rate = Duration::from_millis(250);
 
     let app = Arc::new(Mutex::new(App::new(device)));
 
-    let ui_task = tokio::spawn(ui_task(app.clone()));
+    let ui_task = tokio::spawn(ui_task(app.clone(), tick_rate));
     tokio::spawn(frame_processor_task(socket, app));
 
     // TODO: Use the nested results...
@@ -102,7 +103,7 @@ async fn frame_processor_task(mut socket: CANSocket, app: Arc<Mutex<App>>) -> an
     Ok(())
 }
 
-async fn ui_task(app: Arc<Mutex<App>>) -> anyhow::Result<()> {
+async fn ui_task(app: Arc<Mutex<App>>, tick_rate: u64) -> anyhow::Result<()> {
     // Setup terminal
     enable_raw_mode()?;
 
@@ -127,7 +128,7 @@ async fn ui_task(app: Arc<Mutex<App>>) -> anyhow::Result<()> {
             }
         }
 
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(tick_rate)).await;
     }
 
     // restore terminal
