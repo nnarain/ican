@@ -17,11 +17,12 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
     let device = args.device;
+    let tick_rate = args.tick_rate;
 
     let socket = CANSocket::open(&device)
                                 .with_context(|| format!("Failed to open CAN interface {}", device))?;
 
-    let ctx = CommandContext {socket, device};
+    let ctx = CommandContext {socket, device, tick_rate};
 
     match args.cmd {
         Command::Dump => Ok(action::dump::run(ctx).await?),
