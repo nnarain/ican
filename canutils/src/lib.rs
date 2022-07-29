@@ -19,6 +19,8 @@ pub struct Args {
     pub cmd: Command,
     #[clap(short = 'd', long = "device", value_parser)]
     pub device: String,
+    #[clap(short = 't', long = "tick-rate", default_value = "200")]
+    pub tick_rate: u32,
 }
 
 pub enum Driver {
@@ -40,4 +42,5 @@ pub enum Command {
 pub struct CommandContext {
     pub socket: CANSocket,
     pub device: String,
+    pub tick_rate: u32,
 }

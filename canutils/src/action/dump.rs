@@ -17,7 +17,7 @@ use std::{
     collections::BTreeMap,
     io,
     sync::{Arc, Mutex},
-    time::Duration
+    time::{Duration, Instant}
 };
 
 use tui::{
@@ -34,8 +34,24 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+/// Track information on received CAN frames
+struct TrackedFrame {
+    // The CAN frame
+    pub frame: CanFrame,
+    // Time point of when this CAN frame from received
+    pub recv_time: Instant,
+    // Delta since the last frame
+    pub delta: f32,
+}
+
+impl TrackedFrame {
+    pub fn new(frame: CanFrame, recv_time: Instant, delta: f32) -> Self {
+        Self { frame, recv_time, delta }
+    }
+}
+
 struct App {
-    pub frames: BTreeMap<u32, CanFrame>,
+    pub frames: BTreeMap<u32, TrackedFrame>,
     pub device_name: String,
 }
 
@@ -50,8 +66,13 @@ impl App {
 
 impl App {
     pub fn update(&mut self, frame: CanFrame) {
+        let now = Instant::now();
         let id = utils::id_to_raw(&frame.id());
-        self.frames.insert(id, frame);
+
+        // Get delta with the last received frame of this ID
+        let delta = self.frames.get(&id).map_or(0.0, |f| (now - f.recv_time).as_secs_f32());
+
+        self.frames.insert(id, TrackedFrame::new(frame, now, delta));
     }
 }
 
@@ -133,12 +154,14 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
         .split(f.size());
 
     let items: Vec<ListItem> = app.frames.iter().map(|(_, frame)| {
+        let TrackedFrame { frame, recv_time: _, delta } = frame;
+
         let id = utils::id_to_raw(&frame.id());
         let dlc = frame.dlc();
         let data_string = frame.data().iter().fold(String::from(""), |a, b| format!("{} {:02X}", a, b));
 
         let line = Span::from(
-                        Span::styled(format!("{:08X} [{}] {}", id, dlc, data_string),
+                        Span::styled(format!("{:.3} {:08X} [{}] {}", delta, id, dlc, data_string),
                         Style::default())
                     );
         ListItem::new(line)
