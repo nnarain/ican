@@ -34,9 +34,18 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-#[derive(Default)]
 struct App {
     pub frames: BTreeMap<u32, CanFrame>,
+    pub device_name: String,
+}
+
+impl App {
+    pub fn new(device_name: String) -> Self {
+        Self {
+            frames: BTreeMap::default(),
+            device_name,
+        }
+    }
 }
 
 impl App {
@@ -48,10 +57,11 @@ impl App {
 
 pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     let socket = ctx.socket;
+    let device = ctx.device;
 
     // let tick_rate = Duration::from_millis(250);
 
-    let app = Arc::new(Mutex::new(App::default()));
+    let app = Arc::new(Mutex::new(App::new(device)));
 
     let ui_task = tokio::spawn(ui_task(app.clone()));
     tokio::spawn(frame_processor_task(socket, app));
@@ -134,7 +144,7 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
         ListItem::new(line)
     }).collect();
 
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title("vcan0"));
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(app.device_name.as_str()));
 
     f.render_widget(list, chunks[0]);
 }
