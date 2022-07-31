@@ -626,7 +626,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "socketcan"
+name = "socketcan-hal"
 version = "2.0.0"
 dependencies = [
  "anyhow",
@@ -749,7 +749,7 @@ dependencies = [
  "futures-util",
  "libc",
  "mio",
- "socketcan",
+ "socketcan-hal",
  "thiserror",
  "tokio",
 ]
