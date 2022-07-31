@@ -644,6 +644,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "socketcan-hal"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "295dd9fea3ebba1081860b6d4950e9d68f2ed95f6c1bf450046398b2fb17966e"
+dependencies = [
+ "byte_conv",
+ "embedded-hal",
+ "hex",
+ "itertools",
+ "libc",
+ "nb",
+ "neli",
+ "nix 0.23.1",
+]
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -749,7 +765,7 @@ dependencies = [
  "futures-util",
  "libc",
  "mio",
- "socketcan-hal",
+ "socketcan-hal 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "tokio",
 ]
