@@ -32,6 +32,8 @@ pub enum Driver {
 pub enum Command {
     /// Print CAN frames to console
     Dump,
+    /// TUI displaying CAN frames and decoded signals
+    Monitor,
     /// Send CAN frames to the selected interface
     Send,
     /// Bridge different CAN interfaces together
