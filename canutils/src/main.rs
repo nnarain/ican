@@ -26,6 +26,7 @@ async fn main() -> anyhow::Result<()> {
 
     match args.cmd {
         Command::Dump => Ok(action::dump::run(ctx).await?),
+        Command::Monitor => Ok(action::monitor::run(ctx).await?),
         Command::Send => Ok(()),
         Command::Bridge => Ok(()),
     }
