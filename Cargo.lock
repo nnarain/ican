@@ -627,7 +627,7 @@ dependencies = [
 
 [[package]]
 name = "socketcan-hal"
-version = "2.0.0"
+version = "3.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "byte_conv",
