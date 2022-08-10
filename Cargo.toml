@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "canutils",
+    "canopen-client",
 
     "external/socketcan-rs",
     "external/tokio-socketcan"
