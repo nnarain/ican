@@ -87,6 +87,33 @@ impl TryFrom<&str> for AccessType {
     }
 }
 
+/// Value type
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValueType {
+    Bool(bool),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    F32(f32),
+    VString(String),
+    OString(String),
+}
+
+impl ValueType {
+    pub fn to_unsigned_int(&self) -> Option<usize> {
+        match *self {
+            ValueType::Bool(b) => Some(b as usize),
+            ValueType::U8(i) => Some(i as usize),
+            ValueType::U16(i) => Some(i as usize),
+            ValueType::U32(i) => Some(i as usize),
+            _ => None,
+        }
+    }
+}
+
 /// Variable type
 #[derive(Debug, Clone)]
 pub struct Variable {
@@ -97,14 +124,14 @@ pub struct Variable {
     /// Access type
     pub access_type: AccessType,
     /// Variable default value
-    pub default_value: String,
+    pub default_value: ValueType,
     /// Whether this variable can be PDO mapped
     pub pdo_mapping: bool,
 }
 
 /// Array type
 #[derive(Debug, PartialEq, Clone)]
-pub struct Array {
+pub struct ArrayInfo {
     /// Array name
     pub parameter_name: String,
     /// Number of elements in the array
@@ -113,7 +140,7 @@ pub struct Array {
 
 /// Record type
 #[derive(Debug, PartialEq, Clone)]
-pub struct Record {
+pub struct RecordInfo {
     /// Record name
     pub parameter_name: String,
     /// Number of members in the record
@@ -152,12 +179,22 @@ impl TryFrom<u8> for ObjectType {
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub struct CobId(u16, u8);
 
+impl CobId {
+    pub fn into_parts(self) -> (u16, u8) {
+        (self.0, self.1)
+    }
+
+    pub fn with_subindex(&self, subindex: u8) -> CobId {
+        CobId(self.0, subindex)
+    }
+}
+
 /// Object in the EDS
 #[derive(Debug, Clone)]
 pub enum Object {
     Variable(Variable),
-    Array(Array),
-    Record(Record),
+    Array(ArrayInfo),
+    Record(RecordInfo),
 }
 
 #[derive(Debug, Error)]
@@ -176,7 +213,7 @@ impl Object {
         }
     }
 
-    pub fn into_array(self) -> Result<Array, ObjectError> {
+    pub fn into_array(self) -> Result<ArrayInfo, ObjectError> {
         if let Object::Array(arr) = self {
             Ok(arr)
         }
@@ -185,7 +222,7 @@ impl Object {
         }
     }
 
-    pub fn into_record(self) -> Result<Record, ObjectError> {
+    pub fn into_record(self) -> Result<RecordInfo, ObjectError> {
         if let Object::Record(rec) = self {
             Ok(rec)
         }
@@ -193,11 +230,36 @@ impl Object {
             Err(ObjectError::FailedToConvert)
         }
     }
+
+    pub fn is_variable(&self) -> bool {
+        matches!(*self, Object::Variable(_))
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(*self, Object::Array(_))
+    }
+
+    pub fn is_record(&self) -> bool {
+        matches!(*self, Object::Record(_))
+    }
+
+    pub fn is_metadata(&self) -> bool {
+        self.is_array() || self.is_record()
+    }
+}
+
+/// An Array is composed of multiple variables
+pub struct Array {
+    pub items: Vec<Variable>,
+    pub max_len: usize,
 }
 
 /// EDS file representation
 pub struct Eds {
+    /// Objects in the dictionary
     objects: HashMap<CobId, Object>,
+    /// Metadata objects such as Arrays and Records.
+    metadata: HashMap<CobId, Object>,
 }
 
 /// EDS file errors
@@ -214,15 +276,43 @@ pub enum EdsError {
 }
 
 impl Eds {
+    pub fn get_array(&self, cobid: &CobId) -> Option<Array> {
+        // Check if this object is an array
+        if let Some(Object::Array(array_info)) = self.metadata.get(cobid) {
+            // Subindex 0 contains the number of entries
+            let num = self.get_variable(&cobid.with_subindex(0)).map(|var| var.default_value.to_unsigned_int()).flatten();
+
+            if let Some(num) = num {
+                println!("Array has {} items", num);
+
+                let items = (1..=num).map(|subindex| cobid.with_subindex(subindex as u8))
+                                    .filter_map(|cobid| self.get_variable(&cobid))
+                                    .collect::<Vec<Variable>>();
+
+                Some(Array {items, max_len: array_info.subnumber as usize})
+            }
+            else {
+                None
+            }
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn get_variable(&self, cobid: &CobId) -> Option<Variable> {
+        self.objects.get(cobid).map(|obj| obj.clone().into_variable().ok()).flatten()
+    }
 
     pub fn from_str(s: &str) -> Result<Eds, EdsError> {
         let ini = Ini::load_from_str(s).map_err(|e| EdsError::ConfigError(e))?;
 
         let mut objects: HashMap<CobId, Object> = HashMap::default();
+        let mut metadata: HashMap<CobId, Object> = HashMap::default();
 
         for (section, props) in ini.iter() {
             if let (Some(section), Some(object_type_str)) = (section, props.get("ObjectType")) {
-                let value = eds_string_to_int::<u8>(object_type_str).map_err(|_| EdsError::ConversionError)?;
+                let value = eds_string_to_int::<u8>(object_type_str)?;
                 let object_type = ObjectType::try_from(value).map_err(|_| EdsError::ConversionError)?;
 
                 let object = match object_type {
@@ -233,12 +323,18 @@ impl Eds {
 
                 let cobid = eds_section_to_cobid(section)?;
 
-                objects.insert(cobid, object);
+                if !object.is_metadata() {
+                    objects.insert(cobid, object);
+                }
+                else {
+                    metadata.insert(cobid, object);
+                }
             }
         }
 
         Ok(Eds{
             objects,
+            metadata,
         })
     }
 
@@ -250,6 +346,10 @@ impl Eds {
 
     pub fn objects(&self) -> &HashMap<CobId, Object> {
         &self.objects
+    }
+
+    pub fn metadata(&self) -> &HashMap<CobId, Object> {
+        &self.metadata
     }
 
 }
@@ -264,10 +364,11 @@ fn variable_from_props(props: &Properties) -> Result<Variable, EdsError> {
                                        .map_err(|_| EdsError::ConversionError)?;
     let data_type: DataType = props.get("DataType")
                                    .ok_or(EdsError::IncorrectProperties(String::from("DataType")))
-                                   .map(|s| eds_string_to_int::<u16>(s).map_err(|_| EdsError::ConversionError))??
+                                   .map(|s| eds_string_to_int::<u16>(s))??
                                    .try_into()
                                    .map_err(|_| EdsError::ConversionError)?;
     let default_value = props.get("DefaultValue").ok_or(EdsError::ConversionError)?.to_owned();
+    let default_value = parse_value_type(&default_value, data_type.clone())?;
     let pdo_mapping = props.get("PDOMapping")
                            .ok_or(EdsError::ConversionError)
                            .map(|s| eds_string_to_int::<u8>(s)
@@ -283,7 +384,7 @@ fn variable_from_props(props: &Properties) -> Result<Variable, EdsError> {
     })
 }
 
-fn array_from_props(props: &Properties) -> Result<Array, EdsError> {
+fn array_from_props(props: &Properties) -> Result<ArrayInfo, EdsError> {
     let parameter_name = props.get("ParameterName")
                               .ok_or(EdsError::IncorrectProperties(String::from("ParameterName")))?
                               .to_owned();
@@ -292,13 +393,13 @@ fn array_from_props(props: &Properties) -> Result<Array, EdsError> {
                          .map(|s| eds_string_to_int::<u8>(s)
                          .map_err(|_| EdsError::ConversionError))??;
 
-    Ok(Array{
+    Ok(ArrayInfo{
         parameter_name,
         subnumber,
     })
 }
 
-fn record_from_props(props: &Properties) -> Result<Record, EdsError> {
+fn record_from_props(props: &Properties) -> Result<RecordInfo, EdsError> {
     let parameter_name = props.get("ParameterName")
                               .ok_or(EdsError::IncorrectProperties(String::from("ParameterName")))?
                               .to_owned();
@@ -307,7 +408,7 @@ fn record_from_props(props: &Properties) -> Result<Record, EdsError> {
                          .map(|s| eds_string_to_int::<u8>(s)
                          .map_err(|_| EdsError::ConversionError))??;
 
-    Ok(Record{
+    Ok(RecordInfo{
         parameter_name,
         subnumber,
     })
@@ -340,7 +441,22 @@ fn eds_section_to_cobid(section: &str) -> Result<CobId, EdsError> {
     }
 }
 
-fn eds_string_to_int<N: Num>(s: &str) -> Result<N, N::FromStrRadixErr> {
+fn parse_value_type(source: &str, data_type: DataType) -> Result<ValueType, EdsError> {
+    match data_type {
+        DataType::Bool => Ok(ValueType::Bool(eds_string_to_int::<u8>(source)? != 0)),
+        DataType::U8 => Ok(ValueType::U8(eds_string_to_int::<u8>(source)?)),
+        DataType::U16 => Ok(ValueType::U16(eds_string_to_int::<u16>(source)?)),
+        DataType::U32 => Ok(ValueType::U32(eds_string_to_int::<u32>(source)?)),
+        DataType::I8 => Ok(ValueType::I8(eds_string_to_int::<i8>(source)?)),
+        DataType::I16 => Ok(ValueType::I16(eds_string_to_int::<i16>(source)?)),
+        DataType::I32 => Ok(ValueType::I32(eds_string_to_int::<i32>(source)?)),
+        _ => {
+            panic!("TODO: unsupprted type...")
+        },
+    }
+}
+
+fn eds_string_to_int<N: Num>(s: &str) -> Result<N, EdsError> {
     let (s, radix) = if s.contains("0x") {
         (s.trim_start_matches("0x"), 16)
     }
@@ -348,7 +464,7 @@ fn eds_string_to_int<N: Num>(s: &str) -> Result<N, N::FromStrRadixErr> {
         (s, 10)
     };
 
-    N::from_str_radix(s, radix)
+    N::from_str_radix(s, radix).map_err(|_| EdsError::ConversionError)
 }
 
 #[cfg(test)]
@@ -356,7 +472,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_record() {
+    fn parse_array() {
+        let eds = r#"
+        [1600]
+        ParameterName=Receive PDO 1 Mapping
+        ObjectType=0x8
+        SubNumber=9
+
+        [1600sub0]
+        ParameterName=Number of Entries
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=2
+        PDOMapping=0
+        
+        [1600sub1]
+        ParameterName=Foo
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=1
+        PDOMapping=0
+        
+        [1600sub2]
+        ParameterName=Bar
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=2
+        PDOMapping=0
+        "#;
+
+        let eds = Eds::from_str(eds).unwrap();
+        let array = eds.get_array(&CobId(0x1600, 0x00)).unwrap();
+
+        assert_eq!(array.max_len, 9);
+        assert_eq!(array.items.len(), 2);
+
+        let var1 = array.items[0].clone();
+        assert_eq!(var1.default_value.to_unsigned_int().unwrap(), 1);
+
+        let var2 = array.items[1].clone();
+        assert_eq!(var2.default_value.to_unsigned_int().unwrap(), 2);
+
+    }
+
+    #[test]
+    fn parse_record_info() {
         let eds = r#"
         [1800]
         ParameterName=Foo
@@ -365,7 +528,7 @@ mod tests {
         "#;
 
         let eds = Eds::from_str(eds).unwrap();
-        let foo = eds.objects().get(&CobId(0x1800, 0x00)).unwrap();
+        let foo = eds.metadata().get(&CobId(0x1800, 0x00)).unwrap();
         let array = foo.clone().into_record().unwrap();
 
         assert_eq!(array.parameter_name, String::from("Foo"));
@@ -373,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_array() {
+    fn parse_array_info() {
         let eds = r#"
         [1600]
         ParameterName=Foo
@@ -382,7 +545,7 @@ mod tests {
         "#;
 
         let eds = Eds::from_str(eds).unwrap();
-        let foo = eds.objects().get(&CobId(0x1600, 0x00)).unwrap();
+        let foo = eds.metadata().get(&CobId(0x1600, 0x00)).unwrap();
         let array = foo.clone().into_array().unwrap();
 
         assert_eq!(array.parameter_name, String::from("Foo"));
@@ -424,6 +587,25 @@ mod tests {
         let section = "6000sub2";
         let cobid = eds_section_to_cobid(section).unwrap();
         assert_eq!(cobid, CobId(0x6000, 0x02))
+    }
+
+    #[test]
+    fn value_type_conversion() {
+        let s = "0x01";
+        let value_type = parse_value_type(s, DataType::Bool).unwrap();
+        assert_eq!(value_type, ValueType::Bool(true));
+
+        let s = "0x05";
+        let value_type = parse_value_type(s, DataType::U8).unwrap();
+        assert_eq!(value_type, ValueType::U8(5));
+
+        let s = "0xDEAD";
+        let value_type = parse_value_type(s, DataType::U16).unwrap();
+        assert_eq!(value_type, ValueType::U16(0xDEAD));
+
+        let s = "0xDEADBEEF";
+        let value_type = parse_value_type(s, DataType::U32).unwrap();
+        assert_eq!(value_type, ValueType::U32(0xDEADBEEF));
     }
 
     #[test]
