@@ -297,9 +297,25 @@ pub enum EdsError {
 }
 
 impl Eds {
-    pub fn get_tpdo_mapping(&self) -> Option<PdoMapping> {
+    pub fn get_tpdo1_mapping(&self) -> Option<PdoMapping> {
+        self.get_pdo_mapping(CobId(0x1A00, 0x00))
+    }
+
+    pub fn get_tpdo2_mapping(&self) -> Option<PdoMapping> {
+        self.get_pdo_mapping(CobId(0x1A01, 0x00))
+    }
+
+    pub fn get_tpdo3_mapping(&self) -> Option<PdoMapping> {
+        self.get_pdo_mapping(CobId(0x1A02, 0x00))
+    }
+
+    pub fn get_tpdo4_mapping(&self) -> Option<PdoMapping> {
+        self.get_pdo_mapping(CobId(0x1A03, 0x00))
+    }
+
+    fn get_pdo_mapping(&self, cobid: CobId) -> Option<PdoMapping> {
         // Get TPDO mapping as array
-        self.get_array(&CobId(0x1A00, 0x00))
+        self.get_array(&cobid)
             // Get each mapped PDO item variable
             .map(|tpdos| tpdos.items )
             // Get the value of each variable
@@ -521,7 +537,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn get_tpdo_mapping() {
+    fn get_tpdo1_mapping() {
         let eds = r#"
         [1A00]
         ParameterName=Transmit PDO 1 Mapping
@@ -554,7 +570,7 @@ mod tests {
         "#;
 
         let eds = Eds::from_str(eds).unwrap();
-        let tpdo_mapping = eds.get_tpdo_mapping().unwrap();
+        let tpdo_mapping = eds.get_tpdo1_mapping().unwrap();
 
         assert_eq!(tpdo_mapping.slots[0], Some(MappedPdo(CobId(0x6000, 0x00), 0x04)));
         assert_eq!(tpdo_mapping.slots[1], Some(MappedPdo(CobId(0x6000, 0x01), 0x04)));
