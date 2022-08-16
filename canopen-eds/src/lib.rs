@@ -254,6 +254,27 @@ pub struct Array {
     pub max_len: usize,
 }
 
+/// A mapped PDO item, with its data length
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MappedPdo(CobId, u8);
+
+/// PDO Mapping
+pub struct PdoMapping {
+    /// A maximum of 8 objects can be mapped into a single PDO
+    pub slots: [Option<MappedPdo>; 8],
+}
+
+impl PdoMapping {
+    pub fn from(items: Vec<MappedPdo>) -> Self {
+        let mut slots: [Option<MappedPdo>; 8] = [None; 8];
+        for (slot, item) in slots.iter_mut().zip(items.into_iter()) {
+            *slot = Some(item);
+        }
+
+        PdoMapping { slots, }
+    }
+}
+
 /// EDS file representation
 pub struct Eds {
     /// Objects in the dictionary
@@ -276,6 +297,36 @@ pub enum EdsError {
 }
 
 impl Eds {
+    pub fn get_tpdo_mapping(&self) -> Option<PdoMapping> {
+        // Get TPDO mapping as array
+        self.get_array(&CobId(0x1A00, 0x00))
+            // Get each mapped PDO item variable
+            .map(|tpdos| tpdos.items )
+            // Get the value of each variable
+            // In the form:
+            //   IIII SSLL
+            // where:
+            //   I - Index
+            //   S - subindex
+            //   L - data length
+            .map(|vars| vars.iter().filter_map(|var| var.default_value.to_unsigned_int())
+            // Collect as vector of integers
+            .collect::<Vec<usize>>())
+            // Map the integers into MappedPdo structs
+            .map(|values| {
+                values.iter()
+                      .map(|value| {
+                            let index = ((value & 0xFFFF0000) >> 16) as u16;
+                            let subindex = ((value & 0x0000FF00) >> 8) as u8;
+                            let data_len = (value & 0x000000FF) as u8;
+
+                            MappedPdo(CobId(index, subindex), data_len)
+                      })
+                      .collect::<Vec<MappedPdo>>()
+            })
+            .map(PdoMapping::from)
+    }
+
     pub fn get_array(&self, cobid: &CobId) -> Option<Array> {
         // Check if this object is an array
         if let Some(Object::Array(array_info)) = self.metadata.get(cobid) {
@@ -283,8 +334,6 @@ impl Eds {
             let num = self.get_variable(&cobid.with_subindex(0)).map(|var| var.default_value.to_unsigned_int()).flatten();
 
             if let Some(num) = num {
-                println!("Array has {} items", num);
-
                 let items = (1..=num).map(|subindex| cobid.with_subindex(subindex as u8))
                                     .filter_map(|cobid| self.get_variable(&cobid))
                                     .collect::<Vec<Variable>>();
@@ -451,7 +500,7 @@ fn parse_value_type(source: &str, data_type: DataType) -> Result<ValueType, EdsE
         DataType::I16 => Ok(ValueType::I16(eds_string_to_int::<i16>(source)?)),
         DataType::I32 => Ok(ValueType::I32(eds_string_to_int::<i32>(source)?)),
         _ => {
-            panic!("TODO: unsupprted type...")
+            panic!("TODO: unsupported type...")
         },
     }
 }
@@ -470,6 +519,47 @@ fn eds_string_to_int<N: Num>(s: &str) -> Result<N, EdsError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn get_tpdo_mapping() {
+        let eds = r#"
+        [1A00]
+        ParameterName=Transmit PDO 1 Mapping
+        ObjectType=0x8
+        SubNumber=9
+        
+        [1A00sub0]
+        ParameterName=Number of Entries
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=8
+        PDOMapping=0
+        
+        [1A00sub1]
+        ParameterName=PDO 1 Mapping for a process data variable 1
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60000004
+        PDOMapping=0
+        
+        [1A00sub2]
+        ParameterName=PDO 1 Mapping for a process data variable 2
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60000104
+        PDOMapping=0
+        "#;
+
+        let eds = Eds::from_str(eds).unwrap();
+        let tpdo_mapping = eds.get_tpdo_mapping().unwrap();
+
+        assert_eq!(tpdo_mapping.slots[0], Some(MappedPdo(CobId(0x6000, 0x00), 0x04)));
+        assert_eq!(tpdo_mapping.slots[1], Some(MappedPdo(CobId(0x6000, 0x01), 0x04)));
+        assert_eq!(tpdo_mapping.slots[2], None);
+    }
 
     #[test]
     fn parse_array() {
