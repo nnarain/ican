@@ -521,6 +521,19 @@ fn parse_value_type(source: &str, data_type: DataType) -> Result<ValueType, EdsE
     }
 }
 
+fn value_type_from_bytes(src: &[u8], data_type: DataType) -> Option<ValueType> {
+    match (data_type, src.len()) {
+        (DataType::Bool, 1) => Some(ValueType::Bool(src[0] != 0)),
+        (DataType::U8, 1) => Some(ValueType::U8(src[0])),
+        (DataType::U16, 2) => Some(ValueType::U16(u16::from_le_bytes(src.try_into().unwrap()))),
+        (DataType::U32, 4) => Some(ValueType::U32(u32::from_le_bytes(src.try_into().unwrap()))),
+        (DataType::I8, 1) => Some(ValueType::I8(src[0] as i8)),
+        (DataType::I16, 2) => Some(ValueType::I16(i16::from_le_bytes(src.try_into().unwrap()))),
+        (DataType::I32, 4) => Some(ValueType::I32(i32::from_le_bytes(src.try_into().unwrap()))),
+        _ => None,
+    }
+}
+
 fn eds_string_to_int<N: Num>(s: &str) -> Result<N, EdsError> {
     let (s, radix) = if s.contains("0x") {
         (s.trim_start_matches("0x"), 16)
@@ -534,7 +547,24 @@ fn eds_string_to_int<N: Num>(s: &str) -> Result<N, EdsError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::value_type_from_bytes;
+
     use super::*;
+
+    #[test]
+    fn convert_value_type_from_bytes() {
+        assert_eq!(value_type_from_bytes(&[0], DataType::Bool), Some(ValueType::Bool(false)));
+        assert_eq!(value_type_from_bytes(&[1], DataType::Bool), Some(ValueType::Bool(true)));
+
+        assert_eq!(value_type_from_bytes(&[1], DataType::U8), Some(ValueType::U8(1)));
+        assert_eq!(value_type_from_bytes(&[0xFF], DataType::I8), Some(ValueType::I8(-1)));
+
+        assert_eq!(value_type_from_bytes(&[0xAD, 0xDE], DataType::U16), Some(ValueType::U16(0xDEAD)));
+        assert_eq!(value_type_from_bytes(&[0xFF, 0xFF], DataType::I16), Some(ValueType::I16(-1)));
+
+        assert_eq!(value_type_from_bytes(&[0xEF, 0xBE, 0xAD, 0xDE], DataType::U32), Some(ValueType::U32(0xDEADBEEF)));
+        assert_eq!(value_type_from_bytes(&[0xFF, 0xFF, 0xFF, 0xFF], DataType::I32), Some(ValueType::I32(-1)));
+    }
 
     #[test]
     fn get_tpdo1_mapping() {
