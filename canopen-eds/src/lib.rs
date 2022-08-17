@@ -259,6 +259,7 @@ pub struct Array {
 pub struct MappedPdo(CobId, u8);
 
 /// PDO Mapping
+#[derive(Debug)]
 pub struct PdoMapping {
     /// A maximum of 8 objects can be mapped into a single PDO
     pub slots: [Option<MappedPdo>; 8],
@@ -272,6 +273,34 @@ impl PdoMapping {
         }
 
         PdoMapping { slots, }
+    }
+}
+
+/// PDO Decoder
+pub struct PdoDecoder {
+    pub mapping: [Option<(MappedPdo, DataType)>; 8],
+}
+
+impl PdoDecoder {
+    pub fn decode(&self, data: &[u8]) -> [Option<(CobId, ValueType)>; 8] {
+        let mut values: [Option<(CobId, ValueType)>; 8] = Default::default();
+
+        let mut offset: usize = 0;
+
+        for (item, pdo) in values.iter_mut().zip(self.mapping.iter().filter(|item| item.is_some())) {
+            if let Some((pdo, data_type)) = pdo {
+                let start = offset;
+                let end = start + pdo.1 as usize;
+
+                offset = end;
+
+                if let Some(value_type) = value_type_from_bytes(&data[start..end], data_type.clone()) {
+                    *item = Some((pdo.0, value_type));
+                }
+            }
+        }
+
+        values
     }
 }
 
@@ -297,6 +326,37 @@ pub enum EdsError {
 }
 
 impl Eds {
+    pub fn get_tpdo1_decoder(&self) -> Option<PdoDecoder> {
+        self.get_tpdo1_mapping().map(|mapping| self.get_pdo_decoder(mapping))
+    }
+
+    pub fn get_tpdo2_decoder(&self) -> Option<PdoDecoder> {
+        self.get_tpdo2_mapping().map(|mapping| self.get_pdo_decoder(mapping))
+    }
+
+    pub fn get_tpdo3_decoder(&self) -> Option<PdoDecoder> {
+        self.get_tpdo3_mapping().map(|mapping| self.get_pdo_decoder(mapping))
+    }
+
+    pub fn get_tpdo4_decoder(&self) -> Option<PdoDecoder> {
+        self.get_tpdo4_mapping().map(|mapping| self.get_pdo_decoder(mapping))
+    }
+
+    pub fn get_pdo_decoder(&self, pdo_mapping: PdoMapping) -> PdoDecoder {
+        let mut mapping: [Option<(MappedPdo, DataType)>; 8] = Default::default();
+
+        for (pdo, mapped) in mapping.iter_mut().zip(pdo_mapping.slots.iter()) {
+            let data_type = mapped.clone().and_then(|item| self.get_variable(&item.0).map(|var| var.data_type));
+            if let (Some(mapped), Some(data_type)) = (mapped, data_type) {
+                *pdo = Some((*mapped, data_type));
+            }
+        }
+
+        PdoDecoder {
+            mapping,
+        }
+    }
+
     pub fn get_tpdo1_mapping(&self) -> Option<PdoMapping> {
         self.get_pdo_mapping(CobId(0x1A00, 0x00))
     }
@@ -332,9 +392,9 @@ impl Eds {
             .map(|values| {
                 values.iter()
                       .map(|value| {
-                            let index = ((value & 0xFFFF0000) >> 16) as u16;
-                            let subindex = ((value & 0x0000FF00) >> 8) as u8;
-                            let data_len = (value & 0x000000FF) as u8;
+                            let index = ((value & 0xFFFF_0000) >> 16) as u16;
+                            let subindex = ((value & 0x0000_FF00) >> 8) as u8;
+                            let data_len = (value & 0x0000_00FF) as u8;
 
                             MappedPdo(CobId(index, subindex), data_len)
                       })
@@ -550,6 +610,67 @@ mod tests {
     use crate::value_type_from_bytes;
 
     use super::*;
+
+    #[test]
+    fn pdo_decode() {
+        let eds = r#"
+        [1A00]
+        ParameterName=Transmit PDO 1 Mapping
+        ObjectType=0x8
+        SubNumber=9
+        
+        [1A00sub0]
+        ParameterName=Number of Entries
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=8
+        PDOMapping=0
+        
+        [1A00sub1]
+        ParameterName=PDO 1 Mapping for a process data variable 1
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60000001
+        PDOMapping=0
+        
+        [1A00sub2]
+        ParameterName=PDO 1 Mapping for a process data variable 2
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60010001
+        PDOMapping=0
+
+        [6000]
+        ParameterName=Foo
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=0
+        PDOMapping=0
+
+        [6001]
+        ParameterName=Bar
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=0
+        PDOMapping=0
+        "#;
+
+        let eds = Eds::from_str(eds).unwrap();
+        let decoder = eds.get_tpdo1_decoder().unwrap();
+
+        // let data = ;
+        let values = decoder.decode(&[0x01u8, 0x02u8]);
+        let mut value_iter = values.iter();
+
+        assert_eq!(value_iter.next(), Some(&Some((CobId(0x6000, 0x00), ValueType::U8(0x01)))));
+        assert_eq!(value_iter.next(), Some(&Some((CobId(0x6001, 0x00), ValueType::U8(0x02)))));
+
+    }
 
     #[test]
     fn convert_value_type_from_bytes() {
