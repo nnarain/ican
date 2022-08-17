@@ -738,7 +738,7 @@ dependencies = [
 
 [[package]]
 name = "socketcan-hal"
-version = "3.0.0"
+version = "3.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "byte_conv",
@@ -876,7 +876,7 @@ dependencies = [
  "futures-util",
  "libc",
  "mio",
- "socketcan-hal 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "socketcan-hal 3.0.0",
  "thiserror",
  "tokio",
 ]
