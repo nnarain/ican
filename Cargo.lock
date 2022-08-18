@@ -96,6 +96,8 @@ name = "canutils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "canopen-client",
+ "canopen-eds",
  "clap 3.2.12",
  "crossterm",
  "ctrlc",

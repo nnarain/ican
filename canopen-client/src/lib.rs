@@ -19,8 +19,14 @@ pub enum Error {
 }
 
 /// CANopen Node ID
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NodeId(u8);
+
+impl From<u8> for NodeId {
+    fn from(node: u8) -> Self {
+        NodeId(node)
+    }
+}
 
 impl NodeId {
     pub fn as_raw(&self) -> u8 {
@@ -51,7 +57,7 @@ impl TryFrom<u8> for NmtState {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Pdo {
     Tx1, Rx1,
     Tx2, Rx2,

@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["net", "time", "macros", "rt", "rt-multi-thread", "signal"] }
+canopen-client = { path = "../canopen-client" }
+canopen-eds = { path = "../canopen-eds" }
+tokio = { version = "1", features = ["net", "time", "macros", "rt", "fs", "rt-multi-thread", "signal"] }
 tokio-socketcan = { path = "../external/tokio-socketcan" }
 futures-timer = "3.0"
 futures-util = "0.3"

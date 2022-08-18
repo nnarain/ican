@@ -176,7 +176,7 @@ impl TryFrom<u8> for ObjectType {
 }
 
 /// CANopen Object ID
-#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct CobId(u16, u8);
 
 impl CobId {
