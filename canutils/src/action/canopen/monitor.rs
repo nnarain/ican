@@ -27,9 +27,9 @@ use std::{
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
-    style::Style,
+    style::{Style, Color},
     text::Span,
-    widgets::{Block, Borders, List, ListItem},
+    widgets::{Block, Borders, List, ListItem, Table, TableState, Row, Cell},
     Frame as UiFrame, Terminal,
 };
 use crossterm::{
@@ -57,6 +57,9 @@ struct App {
 
     /// Tracked values
     objects: BTreeMap<CobId, ValueType>,
+
+    /// COB-ID to name look up
+    name_lookup: HashMap<CobId, String>,
 }
 
 impl App {
@@ -71,11 +74,18 @@ impl App {
         .filter_map(|(k, v)| if let Some(v) = v { Some((k, v)) } else { None })
         .collect::<HashMap<_, _>>();
 
+        let name_lookup = eds.objects()
+                             .iter()
+                             .filter_map(|(cobid, obj)| obj.clone().into_variable().ok().map(|v| (cobid.clone(), v)))
+                             .map(|(cobid, var)| (cobid, var.parameter_name))
+                             .collect::<HashMap<_, _>>();
+
         App { 
             device_name,
             node_id: node_id.into(),
             decoders,
             objects: Default::default(),
+            name_lookup,
         }
     }
 
@@ -177,18 +187,48 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
 
     // let format_mode = app.format_mode;
 
-    let items: Vec<ListItem> = app.objects.iter().map(|(cobid, value)| {
+    let headers_cells = ["COB-ID", "Parameter Name", "Value", "Data Type"]
+        .iter().map(|h| Cell::from(*h).style(Style::default().fg(Color::Green)));
+    let header = Row::new(headers_cells);
 
+    let rows = app.objects.iter().map(|(cobid, value)| {
         let (index, subindex) = cobid.clone().into_parts();
 
-        let line = Span::from(
-                        Span::styled(format!("{:02X}.{:01X} {:?}", index, subindex, value),
-                        Style::default())
-                    );
-        ListItem::new(line)
-    }).collect();
+        let parameter_name = app.name_lookup.get(cobid).map(|s| s.clone()).unwrap_or(String::from("unknown"));
 
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(app.device_name.as_str()));
+        let type_str = match value {
+            ValueType::Bool(_) => "bool",
+            ValueType::U8(_) => "uint8",
+            ValueType::I8(_) => "int8",
+            ValueType::U16(_) => "uint16",
+            ValueType::I16(_) => "int16",
+            ValueType::U32(_) => "uint32",
+            ValueType::I32(_) => "int32",
+            ValueType::F32(_) => "float32",
+            ValueType::OString(_) => "Octet String",
+            ValueType::VString(_) => "V String",
+        };
 
-    f.render_widget(list, chunks[0]);
+        let cell0 = Cell::from(format!("{:02X}.{:01X}", index, subindex));
+        let cell1 = Cell::from(parameter_name);
+        let cell2 = Cell::from(format!("{}", value));
+        let cell3 = Cell::from(type_str);
+
+        Row::new([cell0, cell1, cell2, cell3])
+    });
+
+    let title = format!("{:?} on {}", app.node_id, app.device_name);
+
+    let t = Table::new(rows)
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .widths(&[
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25)
+        ]);
+
+    f.render_widget(t, chunks[0]);
+
 }

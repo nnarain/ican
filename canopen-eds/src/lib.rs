@@ -6,6 +6,7 @@ use std::{
     fs,
     io,
     path::Path,
+    fmt,
 };
 
 use ini::{self, Ini, Properties};
@@ -110,6 +111,23 @@ impl ValueType {
             ValueType::U16(i) => Some(i as usize),
             ValueType::U32(i) => Some(i as usize),
             _ => None,
+        }
+    }
+}
+
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            ValueType::Bool(v) => write!(f, "{}", v),
+            ValueType::U8(v) => write!(f, "{}", v),
+            ValueType::I8(v) => write!(f, "{}", v),
+            ValueType::U16(v) => write!(f, "{}", v),
+            ValueType::I16(v) => write!(f, "{}", v),
+            ValueType::U32(v) => write!(f, "{}", v),
+            ValueType::I32(v) => write!(f, "{}", v),
+            ValueType::F32(v) => write!(f, "{}", v),
+            ValueType::OString(ref v) => write!(f, "{}", v),
+            ValueType::VString(ref v) => write!(f, "{}", v),
         }
     }
 }
