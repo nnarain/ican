@@ -192,7 +192,7 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
     let header = Row::new(headers_cells);
 
     let rows = app.objects.iter().map(|(cobid, value)| {
-        let (index, subindex) = cobid.clone().into_parts();
+        // let (index, subindex) = cobid.clone().into_parts();
 
         let parameter_name = app.name_lookup.get(cobid).map(|s| s.clone()).unwrap_or(String::from("unknown"));
 
@@ -209,7 +209,7 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
             ValueType::VString(_) => "V String",
         };
 
-        let cell0 = Cell::from(format!("{:02X}.{:01X}", index, subindex));
+        let cell0 = Cell::from(format!("{}", cobid));
         let cell1 = Cell::from(parameter_name);
         let cell2 = Cell::from(format!("{}", value));
         let cell3 = Cell::from(type_str);

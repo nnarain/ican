@@ -1,5 +1,6 @@
 // Parse a CANopen EDS file
 // #![deny(missing_docs)]
+#![feature(result_option_inspect)]
 
 use std::{
     collections::HashMap,
@@ -66,6 +67,10 @@ pub enum AccessType {
     ReadOnly,
     WriteOnly,
     ReadWrite,
+    Const,
+    ReadWriteProcessOutput,
+    ReadWriteProcessInput,
+    // TODO: rww, rwr
 }
 
 /// Access type error
@@ -83,6 +88,9 @@ impl TryFrom<&str> for AccessType {
             "ro" => Ok(AccessType::ReadOnly),
             "wo" => Ok(AccessType::WriteOnly),
             "rw" => Ok(AccessType::ReadWrite),
+            "const" => Ok(AccessType::Const),
+            "rww" => Ok(AccessType::ReadWriteProcessOutput),
+            "rwr" => Ok(AccessType::ReadWriteProcessInput),
             _ => Err(AccessTypeError::Invalid(value.to_owned())),
         }
     }
@@ -207,6 +215,12 @@ impl CobId {
     }
 }
 
+impl fmt::Display for CobId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:04X}.{:02X}", self.0, self.1)
+    }
+}
+
 /// Object in the EDS
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -267,6 +281,7 @@ impl Object {
 }
 
 /// An Array is composed of multiple variables
+#[derive(Debug)]
 pub struct Array {
     pub items: Vec<Variable>,
     pub max_len: usize,
@@ -330,17 +345,41 @@ pub struct Eds {
     metadata: HashMap<CobId, Object>,
 }
 
+/// Invalid object errors
+#[derive(Debug, Error)]
+pub enum InvalidObjectError {
+    #[error("Invalid data type specified: {0}")]
+    InvalidDataType(#[from] DataTypeError),
+    #[error("Invalid access type specified: {0}")]
+    InvalidAccessType(#[from] AccessTypeError),
+    #[error("Invalid object type specified: {0}")]
+    InvalidObjectType(#[from] ObjectTypeError),
+}
+
+/// Invalid string to int conversion
+// pub enum StringToIntError {
+
+// }
+
 /// EDS file errors
 #[derive(Debug, Error)]
 pub enum EdsError {
     #[error("File Error: '{0}'")]
-    FileError(io::Error),
+    FileError(#[from] io::Error),
     #[error("Could not parse file: {0}")]
-    ConfigError(ini::ParseError),
-    #[error("Failed to convert values")]
-    ConversionError,
+    ConfigError(#[from] ini::ParseError),
+    #[error("Failed to convert object: {0}")]
+    InvalidObject(#[from] InvalidObjectError),
+    #[error("Failed to convert value from string: {0}")]
+    ParseIntError(#[from] core::num::ParseIntError),
+    #[error("Failed to convert value from string: {0}")]
+    ParseFloatError(String),
     #[error("The section did not contain parameter {0}")]
     IncorrectProperties(String),
+    #[error("Object is missing value: {0}")]
+    MissingProperty(String),
+    #[error("The section {0} cannot be converted to a COB-ID")]
+    InvalidCobIdSection(String),
 }
 
 impl Eds {
@@ -414,6 +453,8 @@ impl Eds {
                             let subindex = ((value & 0x0000_FF00) >> 8) as u8;
                             let data_len = (value & 0x0000_00FF) as u8;
 
+                            // println!("{:04X}.{:02X} ({})", index, subindex, data_len);
+
                             MappedPdo(CobId(index, subindex), data_len)
                       })
                       .collect::<Vec<MappedPdo>>()
@@ -422,6 +463,9 @@ impl Eds {
     }
 
     pub fn get_array(&self, cobid: &CobId) -> Option<Array> {
+        if let Some(Object::Array(info)) = self.metadata.get(cobid) {
+            println!("{:?}", info);
+        }
         // Check if this object is an array
         if let Some(Object::Array(array_info)) = self.metadata.get(cobid) {
             // Subindex 0 contains the number of entries
@@ -455,22 +499,28 @@ impl Eds {
 
         for (section, props) in ini.iter() {
             if let (Some(section), Some(object_type_str)) = (section, props.get("ObjectType")) {
-                let value = eds_string_to_int::<u8>(object_type_str)?;
-                let object_type = ObjectType::try_from(value).map_err(|_| EdsError::ConversionError)?;
-
-                let object = match object_type {
-                    ObjectType::Variable => Object::Variable(variable_from_props(props)?),
-                    ObjectType::Array => Object::Array(array_from_props(props)?),
-                    ObjectType::Record => Object::Record(record_from_props(props)?),
-                };
+                let value = eds_string_to_num::<u8>(object_type_str)?;
+                let object_type = ObjectType::try_from(value).map_err(|e| InvalidObjectError::InvalidObjectType(e))?;
 
                 let cobid = eds_section_to_cobid(section)?;
 
-                if !object.is_metadata() {
-                    objects.insert(cobid, object);
+                let object = match object_type {
+                    ObjectType::Variable => if let Ok(var) = variable_from_props(props) { Some(Object::Variable(var)) } else { None },
+                    ObjectType::Array => Some(Object::Array(array_from_props(props)?)),
+                    ObjectType::Record => Some(Object::Record(record_from_props(props)?)),
+                };
+
+                if let Some(object) = object {
+                    if !object.is_metadata() {
+                        objects.insert(cobid, object);
+                    }
+                    else {
+                        // println!("adding: {}", cobid);
+                        metadata.insert(cobid, object);
+                    }
                 }
                 else {
-                    metadata.insert(cobid, object);
+                    println!("Failed to parse object: {}", cobid);
                 }
             }
         }
@@ -504,18 +554,17 @@ fn variable_from_props(props: &Properties) -> Result<Variable, EdsError> {
     let access_type: AccessType = props.get("AccessType")
                                        .ok_or(EdsError::IncorrectProperties(String::from("AccessType")))?
                                        .try_into()
-                                       .map_err(|_| EdsError::ConversionError)?;
+                                       .map_err(|e| InvalidObjectError::InvalidAccessType(e))?;
     let data_type: DataType = props.get("DataType")
                                    .ok_or(EdsError::IncorrectProperties(String::from("DataType")))
-                                   .map(|s| eds_string_to_int::<u16>(s))??
+                                   .map(|s| eds_string_to_num::<u16>(s))??
                                    .try_into()
-                                   .map_err(|_| EdsError::ConversionError)?;
-    let default_value = props.get("DefaultValue").ok_or(EdsError::ConversionError)?.to_owned();
+                                   .map_err(|e| InvalidObjectError::InvalidDataType(e))?;
+    let default_value = props.get("DefaultValue").ok_or(EdsError::MissingProperty("DefaultValue".into()))?.to_owned();
     let default_value = parse_value_type(&default_value, data_type.clone())?;
     let pdo_mapping = props.get("PDOMapping")
-                           .ok_or(EdsError::ConversionError)
-                           .map(|s| eds_string_to_int::<u8>(s)
-                           .map_err(|_| EdsError::ConversionError))?? != 0;
+                           .ok_or(EdsError::MissingProperty("PDOMapping".into()))
+                           .map(|s| eds_string_to_num::<u8>(s))?? != 0;
 
 
     Ok(Variable{
@@ -532,9 +581,8 @@ fn array_from_props(props: &Properties) -> Result<ArrayInfo, EdsError> {
                               .ok_or(EdsError::IncorrectProperties(String::from("ParameterName")))?
                               .to_owned();
     let subnumber = props.get("SubNumber")
-                         .ok_or(EdsError::ConversionError)
-                         .map(|s| eds_string_to_int::<u8>(s)
-                         .map_err(|_| EdsError::ConversionError))??;
+                         .ok_or(EdsError::MissingProperty("SubNumber".into()))
+                         .map(|s| eds_string_to_num::<u8>(s))??;
 
     Ok(ArrayInfo{
         parameter_name,
@@ -547,9 +595,8 @@ fn record_from_props(props: &Properties) -> Result<RecordInfo, EdsError> {
                               .ok_or(EdsError::IncorrectProperties(String::from("ParameterName")))?
                               .to_owned();
     let subnumber = props.get("SubNumber")
-                         .ok_or(EdsError::ConversionError)
-                         .map(|s| eds_string_to_int::<u8>(s)
-                         .map_err(|_| EdsError::ConversionError))??;
+                         .ok_or(EdsError::MissingProperty("SubNumber".into()))
+                         .map(|s| eds_string_to_num::<u8>(s))??;
 
     Ok(RecordInfo{
         parameter_name,
@@ -565,12 +612,12 @@ fn eds_section_to_cobid(section: &str) -> Result<CobId, EdsError> {
     if let Some(caps) = RE_COBID.captures(section) {
         match (caps.get(1), caps.get(2)) {
             (Some(index), None) => {
-                let index = u16::from_str_radix(index.as_str(), 16).map_err(|_| EdsError::ConversionError)?;
+                let index = u16::from_str_radix(index.as_str(), 16)?;
                 Ok(CobId(index, 0x00))
             },
             (Some(index), Some(subindex)) => {
-                let index = u16::from_str_radix(index.as_str(), 16).map_err(|_| EdsError::ConversionError)?;
-                let subindex = u8::from_str_radix(subindex.as_str(), 16).map_err(|_| EdsError::ConversionError)?;
+                let index = u16::from_str_radix(index.as_str(), 16)?;
+                let subindex = u8::from_str_radix(subindex.as_str(), 16)?;
 
                 Ok(CobId(index, subindex))
             },
@@ -580,22 +627,22 @@ fn eds_section_to_cobid(section: &str) -> Result<CobId, EdsError> {
         }
     }
     else {
-        Err(EdsError::ConversionError)
+        Err(EdsError::InvalidCobIdSection(section.to_owned()))
     }
 }
 
 fn parse_value_type(source: &str, data_type: DataType) -> Result<ValueType, EdsError> {
     match data_type {
-        DataType::Bool => Ok(ValueType::Bool(eds_string_to_int::<u8>(source)? != 0)),
-        DataType::U8 => Ok(ValueType::U8(eds_string_to_int::<u8>(source)?)),
-        DataType::U16 => Ok(ValueType::U16(eds_string_to_int::<u16>(source)?)),
-        DataType::U32 => Ok(ValueType::U32(eds_string_to_int::<u32>(source)?)),
-        DataType::I8 => Ok(ValueType::I8(eds_string_to_int::<i8>(source)?)),
-        DataType::I16 => Ok(ValueType::I16(eds_string_to_int::<i16>(source)?)),
-        DataType::I32 => Ok(ValueType::I32(eds_string_to_int::<i32>(source)?)),
-        _ => {
-            panic!("TODO: unsupported type...")
-        },
+        DataType::Bool => Ok(ValueType::Bool(eds_string_to_num::<u8>(source)? != 0)),
+        DataType::U8 => Ok(ValueType::U8(eds_string_to_num::<u8>(source)?)),
+        DataType::U16 => Ok(ValueType::U16(eds_string_to_num::<u16>(source)?)),
+        DataType::U32 => Ok(ValueType::U32(eds_string_to_num::<u32>(source)?)),
+        DataType::I8 => Ok(ValueType::I8(eds_string_to_num::<i8>(source)?)),
+        DataType::I16 => Ok(ValueType::I16(eds_string_to_num::<i16>(source)?)),
+        DataType::I32 => Ok(ValueType::I32(eds_string_to_num::<i32>(source)?)),
+        DataType::F32 => Ok(ValueType::F32(eds_string_to_num::<f32>(source).map_err(|e| EdsError::ParseFloatError(format!("{}", e)))?)),
+        DataType::VString => Ok(ValueType::VString(source.to_owned())),
+        DataType::OString => Ok(ValueType::VString(source.to_owned())),
     }
 }
 
@@ -612,15 +659,20 @@ fn value_type_from_bytes(src: &[u8], data_type: DataType) -> Option<ValueType> {
     }
 }
 
-fn eds_string_to_int<N: Num>(s: &str) -> Result<N, EdsError> {
-    let (s, radix) = if s.contains("0x") {
-        (s.trim_start_matches("0x"), 16)
+fn eds_string_to_num<N: Num>(s: &str) -> Result<N, N::FromStrRadixErr> {
+    if s.is_empty() {
+        Ok(N::zero())
     }
     else {
-        (s, 10)
-    };
-
-    N::from_str_radix(s, radix).map_err(|_| EdsError::ConversionError)
+        let (s, radix) = if s.contains("0x") {
+            (s.trim_start_matches("0x"), 16)
+        }
+        else {
+            (s, 10)
+        };
+    
+        N::from_str_radix(s, radix)
+    }
 }
 
 #[cfg(test)]
@@ -943,14 +995,14 @@ mod tests {
     #[test]
     fn string_to_int_hex() {
         let s = "0x0A";
-        let i = eds_string_to_int::<u8>(s).unwrap();
+        let i = eds_string_to_num::<u8>(s).unwrap();
         assert_eq!(i, 10);
     }
 
     #[test]
     fn string_to_int_dec() {
         let s = "7";
-        let i = eds_string_to_int::<u8>(s).unwrap();
+        let i = eds_string_to_num::<u8>(s).unwrap();
         assert_eq!(i, 7);
     }
 
