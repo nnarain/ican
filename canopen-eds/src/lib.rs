@@ -280,12 +280,25 @@ impl Object {
     }
 }
 
-/// An Array is composed of multiple variables
+/// An Array is composed of multiple variables of the same type
 #[derive(Debug)]
 pub struct Array {
     pub items: Vec<Variable>,
     pub max_len: usize,
 }
+
+/// A Record is composed of multiple variables that can be of any type
+pub struct Record {
+    pub items: HashMap<String, Variable>,
+    pub num_items: usize,
+}
+
+// impl Record {
+//     pub fn into_items(self) -> Vec<Variable> {
+//         self.items.into_iter()
+//                   .so
+//     }
+// }
 
 /// A mapped PDO item, with its data length
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -435,6 +448,7 @@ impl Eds {
         self.get_array(&cobid)
             // Get each mapped PDO item variable
             .map(|tpdos| tpdos.items )
+            .or_else(|| self.get_record(&cobid).map(|r| r.items.values().cloned().collect()))
             // Get the value of each variable
             // In the form:
             //   IIII SSLL
@@ -463,9 +477,6 @@ impl Eds {
     }
 
     pub fn get_array(&self, cobid: &CobId) -> Option<Array> {
-        if let Some(Object::Array(info)) = self.metadata.get(cobid) {
-            println!("{:?}", info);
-        }
         // Check if this object is an array
         if let Some(Object::Array(array_info)) = self.metadata.get(cobid) {
             // Subindex 0 contains the number of entries
@@ -485,6 +496,26 @@ impl Eds {
         else {
             None
         }
+    }
+
+    pub fn get_record(&self, cobid: &CobId) -> Option<Record> {
+        self.metadata.get(cobid)
+            .and_then(|_| {
+                let num = self.get_variable(&cobid.with_subindex(0))
+                              .map(|v| v.default_value.to_unsigned_int()).flatten();
+
+                if let Some(num) = num {
+                    let items = (1..=num).map(|subindex| cobid.with_subindex(subindex as u8))
+                                         .filter_map(|cobid| self.get_variable(&cobid))
+                                         .map(|var| (var.parameter_name.clone(), var))
+                                         .collect::<HashMap<_, _>>();
+
+                    Some(Record { items, num_items: num })
+                }
+                else {
+                    None
+                }
+            })
     }
 
     pub fn get_variable(&self, cobid: &CobId) -> Option<Variable> {
@@ -515,7 +546,6 @@ impl Eds {
                         objects.insert(cobid, object);
                     }
                     else {
-                        // println!("adding: {}", cobid);
                         metadata.insert(cobid, object);
                     }
                 }
@@ -682,7 +712,71 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pdo_decode() {
+    fn pdo_decode_from_record() {
+        let eds = r#"
+        [1A00]
+        ParameterName=Transmit PDO 1 Mapping
+        ObjectType=0x9
+        SubNumber=9
+        
+        [1A00sub0]
+        ParameterName=Number of Entries
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=8
+        PDOMapping=0
+        
+        [1A00sub1]
+        ParameterName=PDO 1 Mapping for a process data variable 1
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60000001
+        PDOMapping=0
+        
+        [1A00sub2]
+        ParameterName=PDO 1 Mapping for a process data variable 2
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=0x60010001
+        PDOMapping=0
+
+        [6000]
+        ParameterName=Foo
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=0
+        PDOMapping=0
+
+        [6001]
+        ParameterName=Bar
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=0
+        PDOMapping=0
+        "#;
+
+        let eds = Eds::from_str(eds).unwrap();
+        let decoder = eds.get_tpdo1_decoder().unwrap();
+
+        // let data = ;
+        let values = decoder.decode(&[0x01u8, 0x02u8]);
+        let value_map = values.into_iter().filter_map(|v| v).collect::<HashMap<_, _>>();
+
+        assert_eq!(value_map.get(&CobId(0x6000, 0x00)).unwrap(), &ValueType::U8(0x01));
+        assert_eq!(value_map.get(&CobId(0x6001, 0x00)).unwrap(), &ValueType::U8(0x02));
+
+        // assert_eq!(value_iter.next(), Some(&Some((CobId(0x6000, 0x00), ValueType::U8(0x01)))));
+        // assert_eq!(value_iter.next(), Some(&Some((CobId(0x6001, 0x00), ValueType::U8(0x02)))));
+
+    }
+
+    #[test]
+    fn pdo_decode_from_array() {
         let eds = r#"
         [1A00]
         ParameterName=Transmit PDO 1 Mapping
@@ -843,6 +937,49 @@ mod tests {
         let var2 = array.items[1].clone();
         assert_eq!(var2.default_value.to_unsigned_int().unwrap(), 2);
 
+    }
+
+    #[test]
+    fn parse_record() {
+        let eds = r#"
+        [1600]
+        ParameterName=Receive PDO 1 Mapping
+        ObjectType=0x9
+        SubNumber=9
+
+        [1600sub0]
+        ParameterName=Number of Entries
+        ObjectType=0x7
+        DataType=0x0005
+        AccessType=rw
+        DefaultValue=2
+        PDOMapping=0
+        
+        [1600sub1]
+        ParameterName=Foo
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=1
+        PDOMapping=0
+        
+        [1600sub2]
+        ParameterName=Bar
+        ObjectType=0x7
+        DataType=0x0007
+        AccessType=rw
+        DefaultValue=2
+        PDOMapping=0
+        "#;
+
+        let eds = Eds::from_str(eds).unwrap();
+        let record = eds.get_record(&CobId(0x1600, 0x00)).unwrap();
+
+        let foo = record.items.get("Foo").unwrap();
+        assert_eq!(foo.default_value, ValueType::U32(1));
+
+        let bar = record.items.get("Bar").unwrap();
+        assert_eq!(bar.default_value, ValueType::U32(2));
     }
 
     #[test]
