@@ -79,7 +79,9 @@ pub struct FrameData {
 impl FrameData {
     pub fn new(data: &[u8], len: usize) -> Self {
         let mut pdo_data = [0u8; 8];
-        pdo_data.copy_from_slice(data);
+        let num = pdo_data.len().min(data.len());
+
+        pdo_data[..num].copy_from_slice(&data[..num]);
 
         Self {
             data: pdo_data,
@@ -331,5 +333,13 @@ mod tests {
                 CanOpenFrame::Pdo(Pdo::Rx4, FrameData { data: [0x01, 0x02, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00], len: 4 })
             )
         );
+    }
+
+    #[test]
+    fn frame_data_variable_length() {
+        let raw_data: [u8; 2] = [0x01, 0x02];
+        let frame_data = FrameData::new(&raw_data[..], 2);
+
+        assert_eq!(frame_data.data, [0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     }
 }
