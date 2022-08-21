@@ -465,11 +465,11 @@ impl Eds {
                       .map(|value| {
                             let index = ((value & 0xFFFF_0000) >> 16) as u16;
                             let subindex = ((value & 0x0000_FF00) >> 8) as u8;
-                            let data_len = (value & 0x0000_00FF) as u8;
+                            let bit_len = (value & 0x0000_00FF) as u8;
 
                             // println!("{:04X}.{:02X} ({})", index, subindex, data_len);
 
-                            MappedPdo(CobId(index, subindex), data_len)
+                            MappedPdo(CobId(index, subindex), bit_len / 8)
                       })
                       .collect::<Vec<MappedPdo>>()
             })
@@ -732,7 +732,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60000001
+        DefaultValue=0x60000008
         PDOMapping=0
         
         [1A00sub2]
@@ -740,7 +740,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60010001
+        DefaultValue=0x60010008
         PDOMapping=0
 
         [6000]
@@ -796,7 +796,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60000001
+        DefaultValue=0x60000008
         PDOMapping=0
         
         [1A00sub2]
@@ -804,7 +804,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60010001
+        DefaultValue=0x60010008
         PDOMapping=0
 
         [6000]
@@ -872,7 +872,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60000004
+        DefaultValue=0x60000020
         PDOMapping=0
         
         [1A00sub2]
@@ -880,7 +880,7 @@ mod tests {
         ObjectType=0x7
         DataType=0x0007
         AccessType=rw
-        DefaultValue=0x60000104
+        DefaultValue=0x60000120
         PDOMapping=0
         "#;
 

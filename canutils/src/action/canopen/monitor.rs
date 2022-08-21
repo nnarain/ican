@@ -4,15 +4,13 @@
 // @author Natesh Narain <nnaraindev@gmail.com>
 // @date Aug 17 2022
 //
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 use crate::CommandContext;
 
 use canopen_eds::{CobId, ValueType, PdoDecoder, Eds};
 use canopen_client::{CanOpenFrame, Pdo, NodeId};
 
-
-use embedded_hal::can::Frame;
 use futures_util::stream::StreamExt;
 
 use tokio_socketcan::{CanFrame, CANSocket};
@@ -21,15 +19,14 @@ use std::{
     collections::{BTreeMap, HashMap},
     io,
     sync::{Arc, Mutex},
-    time::{Duration, Instant}
+    time::Duration
 };
 
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
     style::{Style, Color},
-    text::Span,
-    widgets::{Block, Borders, List, ListItem, Table, TableState, Row, Cell},
+    widgets::{Block, Borders, Table, Row, Cell},
     Frame as UiFrame, Terminal,
 };
 use crossterm::{
@@ -146,7 +143,7 @@ async fn ui_task(app: Arc<Mutex<App>>, tick_rate: u64) -> anyhow::Result<()> {
     loop {
         // The below is in a new scope block so app is out of scope before `await` is called.
         {
-            let mut app = app.lock().unwrap();
+            let app = app.lock().unwrap();
             terminal.draw(|f| ui(f, &*app))?;
 
             if crossterm::event::poll(Duration::from_millis(10))? {
