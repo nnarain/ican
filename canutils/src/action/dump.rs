@@ -5,9 +5,9 @@
 // @date Jul 31 2022
 //
 use crate::{CommandContext, utils};
-use embedded_hal::can::Frame;
 use tokio_socketcan::CANSocket;
 use futures_util::stream::StreamExt;
+use embedded_can::Frame;
 
 pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     tokio::spawn(dump_task(ctx.socket));
