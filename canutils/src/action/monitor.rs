@@ -10,7 +10,7 @@ use crate::utils;
 
 use tokio_socketcan::{CanFrame, CANSocket};
 
-use embedded_hal::can::Frame;
+use embedded_can::Frame;
 use futures_util::stream::StreamExt;
 
 use std::{

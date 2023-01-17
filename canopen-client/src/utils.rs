@@ -4,7 +4,7 @@
 // @author Natesh Narain <nnaraindev@gmail.com>
 // @date Aug 03 2022
 //
-use embedded_hal::can::Id;
+use embedded_can::Id;
 
 pub fn id_to_raw(id: &Id) -> u32 {
     match id {

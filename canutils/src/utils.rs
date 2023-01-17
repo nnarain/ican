@@ -5,7 +5,8 @@
 // @date Jul 19 2022
 //
 
-use embedded_hal::can::Id;
+// use embedded_hal::can::Id;
+use embedded_can::Id;
 
 
 pub fn id_to_raw(id: &Id) -> u32 {

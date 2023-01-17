@@ -9,7 +9,7 @@
 
 mod utils;
 
-use embedded_hal::can::Frame;
+use embedded_can::Frame;
 
 #[derive(Debug)]
 pub enum Error {
