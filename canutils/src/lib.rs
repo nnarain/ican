@@ -35,7 +35,7 @@ pub enum Command {
     /// TUI displaying CAN frames and decoded signals
     Monitor,
     /// Send CAN frames to the selected interface
-    Send,
+    Send(action::send::Args),
     /// Bridge different CAN interfaces together
     Bridge,
     /// CANopen subcommands
