@@ -105,6 +105,7 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "nb",
+ "thiserror",
  "tokio",
  "tokio-socketcan",
  "tui",

@@ -19,6 +19,7 @@ pub fn id_to_raw(id: &Id) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use embedded_can::{StandardId, ExtendedId};
 
     #[test]
     fn check_id_standard() {

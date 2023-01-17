@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     match args.cmd {
         Command::Dump => Ok(action::dump::run(ctx).await?),
         Command::Monitor => Ok(action::monitor::run(ctx).await?),
-        Command::Send => Ok(()),
+        Command::Send(args) => Ok(action::send::run(ctx, args).await?),
         Command::Bridge => Ok(()),
         Command::Canopen(cmd) => Ok(action::canopen::run(cmd, ctx).await?)
     }
