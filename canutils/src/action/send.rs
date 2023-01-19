@@ -63,7 +63,7 @@ fn build_frame(text: &str) -> Result<CanFrame, SendError> {
             let data = body
                 .chars()
                 .collect::<Vec<char>>()
-                .windows(2)
+                .chunks(2)
                 .map(|s| u8::from_str_radix(String::from_iter(s).as_str(), 16).map_err(|_| SendError::SyntaxError))
                 .collect::<Result<Vec<u8>, SendError>>()?;
 
@@ -86,11 +86,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_standard_frame() {
+    fn build_standard_frame1() {
         let text = "705#05";
 
         let frame = build_frame(text).unwrap();
         assert_eq!(frame.id(), embedded_can::Id::Standard(StandardId::new(0x705).unwrap()));
+        assert_eq!(frame.dlc(), 1);
         assert_eq!(frame.data(), &[0x05]);
+    }
+
+    #[test]
+    fn build_standard_frame2() {
+        let text = "705#0102";
+
+        let frame = build_frame(text).unwrap();
+        assert_eq!(frame.id(), embedded_can::Id::Standard(StandardId::new(0x705).unwrap()));
+        assert_eq!(frame.dlc(), 2);
+        assert_eq!(frame.data(), &[0x01, 0x02]);
     }
 }
