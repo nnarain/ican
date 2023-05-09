@@ -804,6 +804,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "socketcan"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7f4c22d9e1c112cad4a39dea15dd4f17e4699edcece54b6401fcdd9c40bc053"
+dependencies = [
+ "bitflags",
+ "byte_conv",
+ "embedded-can",
+ "hex",
+ "itertools",
+ "libc",
+ "nb",
+ "neli",
+ "nix",
+ "thiserror",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -914,7 +932,7 @@ dependencies = [
  "futures-util",
  "libc",
  "mio",
- "socketcan",
+ "socketcan 2.0.0",
  "thiserror",
  "tokio",
 ]
