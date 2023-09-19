@@ -7,7 +7,8 @@ edition = "2021"
 canopen-client = { path = "../canopen-client" }
 canopen-eds = { path = "../canopen-eds" }
 tokio = { version = "1", features = ["net", "time", "macros", "rt", "fs", "rt-multi-thread", "signal"] }
-tokio-socketcan = { path = "../external/tokio-socketcan" }
+# tokio-socketcan = { path = "../external/tokio-socketcan" }
+socketcan = {version = "3.0", features = ["tokio"]}
 futures-timer = "3.0"
 futures-util = "0.3"
 # embedded-hal = "=1.0.0-alpha.8"

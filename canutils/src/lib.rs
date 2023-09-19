@@ -7,7 +7,7 @@
 pub mod action;
 pub mod utils;
 
-use tokio_socketcan::CANSocket;
+use socketcan::tokio::CanSocket;
 
 use clap::{Parser, Subcommand};
 
@@ -45,7 +45,7 @@ pub enum Command {
 
 /// Subcommand context
 pub struct CommandContext {
-    pub socket: CANSocket,
+    pub socket: CanSocket,
     pub device: String,
     pub tick_rate: u64,
 }
