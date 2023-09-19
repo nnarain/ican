@@ -13,7 +13,7 @@ use canopen_client::{CanOpenFrame, Pdo, NodeId};
 
 use futures_util::stream::StreamExt;
 
-use tokio_socketcan::{CanFrame, CANSocket};
+use socketcan::{CanFrame, tokio::CanSocket};
 
 use std::{
     collections::{BTreeMap, HashMap},
@@ -121,7 +121,7 @@ pub async fn run(args: Args, ctx: CommandContext) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn frame_processor_task(mut socket: CANSocket, app: Arc<Mutex<App>>) -> anyhow::Result<()> {
+async fn frame_processor_task(mut socket: CanSocket, app: Arc<Mutex<App>>) -> anyhow::Result<()> {
     while let Some(Ok(frame)) = socket.next().await {
         let mut app = app.lock().unwrap();
         app.update(frame);

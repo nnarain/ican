@@ -8,7 +8,7 @@
 use crate::CommandContext;
 use clap::Parser;
 
-use tokio_socketcan::{CANSocket, CanFrame};
+use socketcan::{tokio::CanSocket, CanFrame};
 use embedded_can::{Frame, StandardId};
 use thiserror::Error;
 use std::time::Duration;
@@ -39,7 +39,7 @@ pub async fn run(ctx: CommandContext, args: Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn send_task(socket: CANSocket, frame: CanFrame, dur: Option<Duration>) -> anyhow::Result<()> {
+async fn send_task(socket: CanSocket, frame: CanFrame, dur: Option<Duration>) -> anyhow::Result<()> {
 
     loop {
         socket.write_frame(frame.clone())?.await?;

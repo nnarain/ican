@@ -7,3 +7,4 @@ members = [
     "external/socketcan-rs",
     "external/tokio-socketcan"
 ]
+resolver = "2"

@@ -5,12 +5,13 @@ use anyhow::Context;
 // @author Natesh Narain <nnaraindev@gmail.com>
 // @date Jul 15 2022
 //
-use tokio;
-use tokio_socketcan::CANSocket;
+
+use socketcan::tokio::CanSocket;
 use clap::Parser;
 
 use canutils::{CommandContext, Args, Command, action};
 
+use tokio;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -19,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     let device = args.device;
     let tick_rate = args.tick_rate;
 
-    let socket = CANSocket::open(&device)
+    let socket = CanSocket::open(&device)
                                 .with_context(|| format!("Failed to open CAN interface {}", device))?;
 
     let ctx = CommandContext {socket, device, tick_rate};
