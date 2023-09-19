@@ -2,9 +2,6 @@
 members = [
     "canutils",
     "canopen-client",
-    "canopen-eds",
-
-    "external/socketcan-rs",
-    "external/tokio-socketcan"
+    "canopen-eds"
 ]
 resolver = "2"
