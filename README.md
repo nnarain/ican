@@ -1,17 +1,11 @@
-# can-rs
+# ican
 
-CAN libraries and tools for Rust
+Modern CAN tools written in Rust!
 
-## Tools
-
-**ican**
-
-A clone of the `can-utils` tools such as `cansend`, `candump` in a single executable.
-
-Install:
+**Install**:
 
 ```
-$ git clone https://github.com/nnarain/can-rs
-$ cd can-rs
-$ cargo install --path ican
+$ git clone https://github.com/nnarain/ican
+$ cd ican
+$ cargo install --path .
 ```
