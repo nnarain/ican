@@ -1,2 +1,2 @@
 [alias]
-canutils = "run --bin canutils --"
+ican = "run --release --"

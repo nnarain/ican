@@ -11,7 +11,7 @@ use socketcan::tokio::CanSocket;
 
 use clap::{Parser, Subcommand};
 
-/// canutils provides several common CAN commands
+/// ican provides several common CAN commands
 #[derive(Parser)]
 #[clap(author, version, about)]
 pub struct Args {
@@ -38,9 +38,9 @@ pub enum Command {
     Send(action::send::Args),
     /// Bridge different CAN interfaces together
     Bridge,
-    /// CANopen subcommands
-    #[clap(subcommand)]
-    Canopen(action::canopen::CanOpenCommands),
+    // /// CANopen subcommands
+    // #[clap(subcommand)]
+    // Canopen(action::canopen::CanOpenCommands),
 }
 
 /// Subcommand context
