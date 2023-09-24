@@ -80,24 +80,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
-name = "canutils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "crossterm",
- "ctrlc",
- "embedded-can",
- "futures-timer",
- "futures-util",
- "nb",
- "socketcan",
- "thiserror",
- "tokio",
- "tui",
-]
-
-[[package]]
 name = "cassowary"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,6 +322,24 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "ican"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossterm",
+ "ctrlc",
+ "embedded-can",
+ "futures-timer",
+ "futures-util",
+ "nb",
+ "socketcan",
+ "thiserror",
+ "tokio",
+ "tui",
+]
 
 [[package]]
 name = "indexmap"

@@ -1,5 +1,22 @@
-[workspace]
-members = [
-    "canutils"
-]
-resolver = "2"
+[package]
+name = "ican"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# canopen-client = { path = "../canopen-client" }
+# canopen-eds = { path = "../canopen-eds" }
+tokio = { version = "1", features = ["net", "time", "macros", "rt", "fs", "rt-multi-thread", "signal"] }
+# tokio-socketcan = { path = "../external/tokio-socketcan" }
+socketcan = {version = "3.0", features = ["tokio"]}
+futures-timer = "3.0"
+futures-util = "0.3"
+# embedded-hal = "=1.0.0-alpha.8"
+embedded-can = "0.4"
+anyhow = "1.0"
+thiserror = "1.0"
+ctrlc = "3.2.2"
+clap = {version = "3.2.8", features = ["derive"]}
+nb = "1.0"
+tui = "0.18.0"
+crossterm = "0.23"

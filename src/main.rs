@@ -9,7 +9,7 @@ use anyhow::Context;
 use socketcan::tokio::CanSocket;
 use clap::Parser;
 
-use canutils::{CommandContext, Args, Command, action};
+use ican::{CommandContext, Args, Command, action};
 
 use tokio;
 

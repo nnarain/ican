@@ -11,7 +11,7 @@ use socketcan::tokio::CanSocket;
 
 use clap::{Parser, Subcommand};
 
-/// canutils provides several common CAN commands
+/// ican provides several common CAN commands
 #[derive(Parser)]
 #[clap(author, version, about)]
 pub struct Args {
