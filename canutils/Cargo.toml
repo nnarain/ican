@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-canopen-client = { path = "../canopen-client" }
-canopen-eds = { path = "../canopen-eds" }
+# canopen-client = { path = "../canopen-client" }
+# canopen-eds = { path = "../canopen-eds" }
 tokio = { version = "1", features = ["net", "time", "macros", "rt", "fs", "rt-multi-thread", "signal"] }
 # tokio-socketcan = { path = "../external/tokio-socketcan" }
 socketcan = {version = "3.0", features = ["tokio"]}

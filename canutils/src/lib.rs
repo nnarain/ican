@@ -38,9 +38,9 @@ pub enum Command {
     Send(action::send::Args),
     /// Bridge different CAN interfaces together
     Bridge,
-    /// CANopen subcommands
-    #[clap(subcommand)]
-    Canopen(action::canopen::CanOpenCommands),
+    // /// CANopen subcommands
+    // #[clap(subcommand)]
+    // Canopen(action::canopen::CanOpenCommands),
 }
 
 /// Subcommand context

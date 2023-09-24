@@ -1,7 +1,5 @@
 [workspace]
 members = [
-    "canutils",
-    "canopen-client",
-    "canopen-eds"
+    "canutils"
 ]
 resolver = "2"
