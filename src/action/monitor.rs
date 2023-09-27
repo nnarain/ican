@@ -95,7 +95,7 @@ impl App {
 
 pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     let socket = ctx.socket;
-    let device = ctx.device;
+    let device = ctx.interface;
     let tick_rate = ctx.tick_rate;
 
     // let tick_rate = Duration::from_millis(250);

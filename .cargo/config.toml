@@ -1,2 +1,2 @@
 [alias]
-ican = "run --release --"
+ican = "run --"

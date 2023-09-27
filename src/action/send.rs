@@ -19,7 +19,7 @@ pub enum SendError {
     SyntaxError
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct Args {
     frame: String,
     #[clap(short = 'r', long = "rate", value_parser)]
