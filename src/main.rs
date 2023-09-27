@@ -9,7 +9,7 @@ use anyhow::Context;
 use socketcan::tokio::CanSocket;
 use clap::Parser;
 
-use ican::{CommandContext, Args, Command, action};
+use ican::{CommandContext, Args, Command, action, DriverOpts};
 
 use tokio;
 
@@ -17,19 +17,27 @@ use tokio;
 async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
-    let device = args.device;
-    let tick_rate = args.tick_rate;
 
-    let socket = CanSocket::open(&device)
-                                .with_context(|| format!("Failed to open CAN interface {}", device))?;
+    let interface = args.interface;
+    let tick_rate = args.tui_tick_rate;
 
-    let ctx = CommandContext {socket, device, tick_rate};
+    // TODO(nnarain): Support other drivers
+    if let DriverOpts::SocketCan(interface) = interface {
+        let socket = CanSocket::open(&interface)
+            .with_context(|| format!("Failed to open CAN interface {}", interface))?;
 
-    match args.cmd {
-        Command::Dump => Ok(action::dump::run(ctx).await?),
-        Command::Monitor => Ok(action::monitor::run(ctx).await?),
-        Command::Send(args) => Ok(action::send::run(ctx, args).await?),
-        Command::Bridge => Ok(()),
-        // Command::Canopen(cmd) => Ok(action::canopen::run(cmd, ctx).await?)
+        let ctx = CommandContext {socket, interface, tick_rate};
+
+        match args.cmd {
+            Command::Dump => Ok(action::dump::run(ctx).await?),
+            Command::Monitor => Ok(action::monitor::run(ctx).await?),
+            Command::Send(args) => Ok(action::send::run(ctx, args).await?),
+            Command::Bridge => Ok(()),
+            // Command::Canopen(cmd) => Ok(action::canopen::run(cmd, ctx).await?)
+        }
     }
+    else {
+        Ok(())
+    }
+
 }
