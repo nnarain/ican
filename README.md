@@ -1,5 +1,7 @@
 # ican
 
+![Build](https://github.com/nnarain/ican/actions/workflows/build.yml/badge.svg)
+
 Modern CAN tools written in Rust!
 
 ## Install
