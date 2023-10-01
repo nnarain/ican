@@ -6,11 +6,14 @@
 //
 pub mod action;
 pub mod utils;
+pub mod drivers;
+pub mod frame;
 
-use std::str::FromStr;
+use crate::drivers::AsyncCanDriverPtr;
+
+use std::{str::FromStr, fmt};
 use regex::Regex;
 
-use socketcan::tokio::CanSocket;
 use clap::{Parser, Subcommand};
 use thiserror::Error;
 
@@ -59,6 +62,15 @@ impl FromStr for DriverOpts {
     }
 }
 
+impl fmt::Display for DriverOpts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            DriverOpts::SocketCan(interface) => write!(f, "socketcan://{}", interface),
+            DriverOpts::Udp(ip, addr) => write!(f, "udp://{}:{}", ip, addr),
+        }
+    }
+}
+
 /// ican provides several common CAN commands
 #[derive(Parser, Debug)]
 #[command(author = "Natesh Narain", version, about = "Modern CAN tools")]
@@ -81,8 +93,8 @@ pub enum Command {
     Monitor,
     /// Send CAN frames to the selected interface
     Send(action::send::Args),
-    /// Bridge different CAN interfaces together
-    Bridge,
+    // /// Bridge different CAN interfaces together
+    // Bridge,
     // /// CANopen subcommands
     // #[clap(subcommand)]
     // Canopen(action::canopen::CanOpenCommands),
@@ -90,7 +102,7 @@ pub enum Command {
 
 /// Subcommand context
 pub struct CommandContext {
-    pub socket: CanSocket,
+    pub driver: AsyncCanDriverPtr,
     pub interface: String,
     pub tick_rate: u64,
 }

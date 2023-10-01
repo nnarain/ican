@@ -5,13 +5,9 @@
 // @date Jul 15 2022
 //
 
-use crate::CommandContext;
-use crate::utils;
-
-use socketcan::{CanFrame, tokio::CanSocket};
+use crate::{CommandContext, utils, drivers::AsyncCanDriverPtr, frame::CanFrame};
 
 use embedded_can::Frame;
-use futures_util::stream::StreamExt;
 
 use std::{
     collections::BTreeMap,
@@ -94,7 +90,7 @@ impl App {
 }
 
 pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
-    let socket = ctx.socket;
+    let driver = ctx.driver;
     let device = ctx.interface;
     let tick_rate = ctx.tick_rate;
 
@@ -103,7 +99,7 @@ pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     let app = Arc::new(Mutex::new(App::new(device)));
 
     let ui_task = tokio::spawn(ui_task(app.clone(), tick_rate));
-    tokio::spawn(frame_processor_task(socket, app));
+    tokio::spawn(frame_processor_task(driver, app));
 
     // TODO: Use the nested results...
     tokio::join!(ui_task).0??;
@@ -111,8 +107,8 @@ pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn frame_processor_task(mut socket: CanSocket, app: Arc<Mutex<App>>) -> anyhow::Result<()> {
-    while let Some(Ok(frame)) = socket.next().await {
+async fn frame_processor_task(mut driver: AsyncCanDriverPtr, app: Arc<Mutex<App>>) -> anyhow::Result<()> {
+    while let Some(frame) = driver.recv().await {
         let mut app = app.lock().unwrap();
         app.update(frame);
     }

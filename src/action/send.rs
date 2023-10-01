@@ -5,10 +5,9 @@
 // @date Jan 16 2023
 //
 
-use crate::CommandContext;
+use crate::{CommandContext, frame::CanFrame, drivers::AsyncCanDriverPtr};
 use clap::Parser;
 
-use socketcan::{tokio::CanSocket, CanFrame};
 use embedded_can::{Frame, StandardId};
 use thiserror::Error;
 use std::time::Duration;
@@ -33,16 +32,16 @@ pub async fn run(ctx: CommandContext, args: Args) -> anyhow::Result<()> {
         .filter(|&r| r != 0.0)
         .map(|r| Duration::from_secs_f32(1.0 / r));
 
-    tokio::spawn(send_task(ctx.socket, frame, period));
+    tokio::spawn(send_task(ctx.driver, frame, period));
     tokio::signal::ctrl_c().await?;
 
     Ok(())
 }
 
-async fn send_task(socket: CanSocket, frame: CanFrame, dur: Option<Duration>) -> anyhow::Result<()> {
+async fn send_task(mut driver: AsyncCanDriverPtr, frame: CanFrame, dur: Option<Duration>) -> anyhow::Result<()> {
 
     loop {
-        socket.write_frame(frame.clone())?.await?;
+        driver.send(frame.clone().into()).await;
 
         match dur {
             None => break,
