@@ -58,6 +58,6 @@ impl Frame for CanFrame {
     }
 
     fn data(&self) -> &[u8] {
-        &self.data[..]
+        &self.data[..self.dlc]
     }
 }
