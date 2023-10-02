@@ -6,6 +6,7 @@
 //
 pub mod action;
 pub mod drivers;
+pub mod format;
 pub mod frame;
 pub mod utils;
 
