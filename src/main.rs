@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Dump => Ok(action::dump::run(context).await?),
         Command::Monitor => Ok(action::monitor::run(context).await?),
         Command::Send(args) => Ok(action::send::run(context, args).await?),
+        Command::Bridge(args) => Ok(action::bridge::run(context, args).await?),
     }
-
 }
 
