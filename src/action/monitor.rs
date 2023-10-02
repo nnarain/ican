@@ -5,7 +5,12 @@
 // @date Jul 15 2022
 //
 
-use crate::{drivers::AsyncCanDriverPtr, frame::CanFrame, utils, CommandContext};
+use crate::{
+    drivers::AsyncCanDriverPtr,
+    format::{CanFrameFormatter, DataFormatMode},
+    frame::CanFrame,
+    utils, CommandContext,
+};
 
 use embedded_can::Frame;
 
@@ -50,11 +55,11 @@ impl TrackedFrame {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum DataFormatMode {
-    Hex,
-    Binary,
-}
+// #[derive(Debug, Clone, Copy)]
+// enum DataFormatMode {
+//     Hex,
+//     Binary,
+// }
 
 struct App {
     pub frames: BTreeMap<u32, TrackedFrame>,
@@ -186,19 +191,10 @@ fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
                 delta,
             } = frame;
 
-            let id = utils::id_to_raw(&frame.id());
-            let dlc = frame.dlc();
-            let data_string =
-                frame
-                    .data()
-                    .iter()
-                    .fold(String::from(""), |a, b| match format_mode {
-                        DataFormatMode::Hex => format!("{} {:02X}", a, b),
-                        DataFormatMode::Binary => format!("{} {:08b}", a, b),
-                    });
+            let frame_fmt: CanFrameFormatter = (frame.clone(), format_mode).into();
 
             let line = Span::from(Span::styled(
-                format!("{:.3} {:08X} [{}] {}", delta, id, dlc, data_string),
+                format!("{:.3} {}", delta, frame_fmt),
                 Style::default(),
             ));
             ListItem::new(line)
