@@ -25,18 +25,28 @@ impl Frame for CanFrame {
             let mut payload = [0u8; 8];
             payload[..data.len()].copy_from_slice(&data[..]);
 
-            Some(CanFrame { id, is_extended: matches!(id, Id::Extended(_)), is_remote: false, dlc: data.len(), data: payload })
-        }
-        else {
+            Some(CanFrame {
+                id,
+                is_extended: matches!(id, Id::Extended(_)),
+                is_remote: false,
+                dlc: data.len(),
+                data: payload,
+            })
+        } else {
             None
         }
     }
 
     fn new_remote(id: impl Into<Id>, dlc: usize) -> Option<Self> {
         if dlc <= 8 {
-            Some(CanFrame{id: id.into(), is_extended: false, is_remote: true, dlc, data: [0u8; 8]})
-        }
-        else {
+            Some(CanFrame {
+                id: id.into(),
+                is_extended: false,
+                is_remote: true,
+                dlc,
+                data: [0u8; 8],
+            })
+        } else {
             None
         }
     }

@@ -5,7 +5,7 @@
 // @date Oct 01 2023
 //
 
-use crate::{DriverOpts, CommandContext, drivers::AsyncCanDriverPtr};
+use crate::{drivers::AsyncCanDriverPtr, CommandContext, DriverOpts};
 
 use clap::Parser;
 
@@ -28,7 +28,10 @@ pub async fn run(ctx: CommandContext, args: Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn bridge_task(mut from_driver: AsyncCanDriverPtr, mut to_driver: AsyncCanDriverPtr) -> anyhow::Result<()> {
+async fn bridge_task(
+    mut from_driver: AsyncCanDriverPtr,
+    mut to_driver: AsyncCanDriverPtr,
+) -> anyhow::Result<()> {
     while let Some(frame) = from_driver.recv().await {
         to_driver.send(frame).await;
     }

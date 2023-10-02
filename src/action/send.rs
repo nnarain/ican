@@ -5,17 +5,17 @@
 // @date Jan 16 2023
 //
 
-use crate::{CommandContext, frame::CanFrame, drivers::AsyncCanDriverPtr};
+use crate::{drivers::AsyncCanDriverPtr, frame::CanFrame, CommandContext};
 use clap::Parser;
 
 use embedded_can::{Frame, StandardId};
-use thiserror::Error;
 use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum SendError {
     #[error("Failed to parse frame from input")]
-    SyntaxError
+    SyntaxError,
 }
 
 #[derive(Parser, Debug)]
@@ -28,7 +28,8 @@ pub struct Args {
 pub async fn run(ctx: CommandContext, args: Args) -> anyhow::Result<()> {
     let frame = build_frame(&args.frame)?;
 
-    let period = args.rate
+    let period = args
+        .rate
         .filter(|&r| r != 0.0)
         .map(|r| Duration::from_secs_f32(1.0 / r));
 
@@ -38,8 +39,11 @@ pub async fn run(ctx: CommandContext, args: Args) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn send_task(mut driver: AsyncCanDriverPtr, frame: CanFrame, dur: Option<Duration>) -> anyhow::Result<()> {
-
+async fn send_task(
+    mut driver: AsyncCanDriverPtr,
+    frame: CanFrame,
+    dur: Option<Duration>,
+) -> anyhow::Result<()> {
     loop {
         driver.send(frame.clone().into()).await;
 
@@ -63,19 +67,20 @@ fn build_frame(text: &str) -> Result<CanFrame, SendError> {
                 .chars()
                 .collect::<Vec<char>>()
                 .chunks(2)
-                .map(|s| u8::from_str_radix(String::from_iter(s).as_str(), 16).map_err(|_| SendError::SyntaxError))
+                .map(|s| {
+                    u8::from_str_radix(String::from_iter(s).as_str(), 16)
+                        .map_err(|_| SendError::SyntaxError)
+                })
                 .collect::<Result<Vec<u8>, SendError>>()?;
 
             StandardId::new(id)
                 .map(|id| CanFrame::new(id, &data[..]))
                 .flatten()
                 .ok_or(SendError::SyntaxError)
-        }
-        else {
+        } else {
             Err(SendError::SyntaxError)
         }
-    }
-    else {
+    } else {
         Err(SendError::SyntaxError)
     }
 }
@@ -89,7 +94,10 @@ mod tests {
         let text = "705#05";
 
         let frame = build_frame(text).unwrap();
-        assert_eq!(frame.id(), embedded_can::Id::Standard(StandardId::new(0x705).unwrap()));
+        assert_eq!(
+            frame.id(),
+            embedded_can::Id::Standard(StandardId::new(0x705).unwrap())
+        );
         assert_eq!(frame.dlc(), 1);
         assert_eq!(frame.data(), &[0x05]);
     }
@@ -99,7 +107,10 @@ mod tests {
         let text = "705#0102";
 
         let frame = build_frame(text).unwrap();
-        assert_eq!(frame.id(), embedded_can::Id::Standard(StandardId::new(0x705).unwrap()));
+        assert_eq!(
+            frame.id(),
+            embedded_can::Id::Standard(StandardId::new(0x705).unwrap())
+        );
         assert_eq!(frame.dlc(), 2);
         assert_eq!(frame.data(), &[0x01, 0x02]);
     }

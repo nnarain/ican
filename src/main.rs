@@ -6,16 +6,12 @@
 //
 use clap::Parser;
 
-use ican::{
-    drivers::AsyncCanDriverPtr,
-    CommandContext, Args, Command, action,
-};
+use ican::{action, drivers::AsyncCanDriverPtr, Args, Command, CommandContext};
 
 use tokio;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-
     let args = Args::parse();
 
     let interface = args.interface.clone().to_string();
@@ -23,7 +19,11 @@ async fn main() -> anyhow::Result<()> {
 
     let driver: AsyncCanDriverPtr = args.interface.try_into()?;
 
-    let context = CommandContext { driver, interface, tick_rate};
+    let context = CommandContext {
+        driver,
+        interface,
+        tick_rate,
+    };
 
     match args.cmd {
         Command::Dump => Ok(action::dump::run(context).await?),
@@ -32,4 +32,3 @@ async fn main() -> anyhow::Result<()> {
         Command::Bridge(args) => Ok(action::bridge::run(context, args).await?),
     }
 }
-

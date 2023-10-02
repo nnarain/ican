@@ -21,7 +21,6 @@ pub enum DriverError {
     SocketCanError(#[from] SocketCanDriverError),
 }
 
-
 #[async_trait]
 pub trait AsyncCanDriver {
     /// Recieve CAN frame from the driver
@@ -36,11 +35,9 @@ impl TryFrom<DriverOpts> for AsyncCanDriverPtr {
 
     fn try_from(value: DriverOpts) -> Result<Self, Self::Error> {
         match value {
-            DriverOpts::SocketCan(can_interface) => {
-                SocketCanDriver::new(&can_interface)
-                    .map(|driver| upcast(Box::new(driver)))
-                    .map_err(|e| DriverError::SocketCanError(e))
-            },
+            DriverOpts::SocketCan(can_interface) => SocketCanDriver::new(&can_interface)
+                .map(|driver| upcast(Box::new(driver)))
+                .map_err(|e| DriverError::SocketCanError(e)),
             DriverOpts::Udp(_, _) => unimplemented!(),
         }
     }

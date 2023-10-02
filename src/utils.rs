@@ -8,7 +8,6 @@
 // use embedded_hal::can::Id;
 use embedded_can::Id;
 
-
 pub fn id_to_raw(id: &Id) -> u32 {
     match id {
         Id::Standard(id) => id.as_raw() as u32,
@@ -19,7 +18,7 @@ pub fn id_to_raw(id: &Id) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use embedded_can::{StandardId, ExtendedId};
+    use embedded_can::{ExtendedId, StandardId};
 
     #[test]
     fn check_id_standard() {

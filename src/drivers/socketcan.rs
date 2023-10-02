@@ -5,14 +5,14 @@
 // @date Sep 29 2023
 //
 
-use crate::frame::CanFrame;
 use crate::drivers::AsyncCanDriver;
+use crate::frame::CanFrame;
 
-use socketcan::{CanFrame as SocketCanFrame, tokio::CanSocket};
-use embedded_can::Frame;
 use async_trait::async_trait;
-use thiserror::Error;
+use embedded_can::Frame;
 use futures_util::StreamExt;
+use socketcan::{tokio::CanSocket, CanFrame as SocketCanFrame};
+use thiserror::Error;
 
 use std::io;
 
@@ -29,11 +29,10 @@ impl From<CanFrame> for SocketCanFrame {
     }
 }
 
-
 #[derive(Debug, Error)]
 pub enum SocketCanDriverError {
     #[error("Failed to open CAN device")]
-    OpenError(#[from] io::Error)
+    OpenError(#[from] io::Error),
 }
 
 pub struct SocketCanDriver(CanSocket);
@@ -49,7 +48,11 @@ impl SocketCanDriver {
 #[async_trait]
 impl AsyncCanDriver for SocketCanDriver {
     async fn recv(&mut self) -> Option<CanFrame> {
-        self.0.next().await.map(|frame| frame.ok().map(|frame| frame.into())).flatten()
+        self.0
+            .next()
+            .await
+            .map(|frame| frame.ok().map(|frame| frame.into()))
+            .flatten()
     }
 
     async fn send(&mut self, frame: CanFrame) {

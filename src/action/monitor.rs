@@ -5,7 +5,7 @@
 // @date Jul 15 2022
 //
 
-use crate::{CommandContext, utils, drivers::AsyncCanDriverPtr, frame::CanFrame};
+use crate::{drivers::AsyncCanDriverPtr, frame::CanFrame, utils, CommandContext};
 
 use embedded_can::Frame;
 
@@ -13,9 +13,14 @@ use std::{
     collections::BTreeMap,
     io,
     sync::{Arc, Mutex},
-    time::{Duration, Instant}
+    time::{Duration, Instant},
 };
 
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
@@ -23,11 +28,6 @@ use tui::{
     text::Span,
     widgets::{Block, Borders, List, ListItem},
     Frame as UiFrame, Terminal,
-};
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 /// Track information on received CAN frames
@@ -42,7 +42,11 @@ struct TrackedFrame {
 
 impl TrackedFrame {
     pub fn new(frame: CanFrame, recv_time: Instant, delta: f32) -> Self {
-        Self { frame, recv_time, delta }
+        Self {
+            frame,
+            recv_time,
+            delta,
+        }
     }
 }
 
@@ -74,7 +78,10 @@ impl App {
         let id = utils::id_to_raw(&frame.id());
 
         // Get delta with the last received frame of this ID
-        let delta = self.frames.get(&id).map_or(0.0, |f| (now - f.recv_time).as_secs_f32());
+        let delta = self
+            .frames
+            .get(&id)
+            .map_or(0.0, |f| (now - f.recv_time).as_secs_f32());
 
         self.frames.insert(id, TrackedFrame::new(frame, now, delta));
     }
@@ -107,7 +114,10 @@ pub async fn run(ctx: CommandContext) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn frame_processor_task(mut driver: AsyncCanDriverPtr, app: Arc<Mutex<App>>) -> anyhow::Result<()> {
+async fn frame_processor_task(
+    mut driver: AsyncCanDriverPtr,
+    app: Arc<Mutex<App>>,
+) -> anyhow::Result<()> {
     while let Some(frame) = driver.recv().await {
         let mut app = app.lock().unwrap();
         app.update(frame);
@@ -161,36 +171,45 @@ async fn ui_task(app: Arc<Mutex<App>>, tick_rate: u64) -> anyhow::Result<()> {
 fn ui<B: Backend>(f: &mut UiFrame<B>, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage(100),
-            ]
-            .as_ref(),
-        )
+        .constraints([Constraint::Percentage(100)].as_ref())
         .split(f.size());
 
     let format_mode = app.format_mode;
 
-    let items: Vec<ListItem> = app.frames.iter().map(|(_, frame)| {
-        let TrackedFrame { frame, recv_time: _, delta } = frame;
+    let items: Vec<ListItem> = app
+        .frames
+        .iter()
+        .map(|(_, frame)| {
+            let TrackedFrame {
+                frame,
+                recv_time: _,
+                delta,
+            } = frame;
 
-        let id = utils::id_to_raw(&frame.id());
-        let dlc = frame.dlc();
-        let data_string = frame.data().iter().fold(String::from(""), |a, b| {
-            match format_mode {
-                DataFormatMode::Hex => format!("{} {:02X}", a, b),
-                DataFormatMode::Binary => format!("{} {:08b}", a, b),
-            }
-        });
+            let id = utils::id_to_raw(&frame.id());
+            let dlc = frame.dlc();
+            let data_string =
+                frame
+                    .data()
+                    .iter()
+                    .fold(String::from(""), |a, b| match format_mode {
+                        DataFormatMode::Hex => format!("{} {:02X}", a, b),
+                        DataFormatMode::Binary => format!("{} {:08b}", a, b),
+                    });
 
-        let line = Span::from(
-                        Span::styled(format!("{:.3} {:08X} [{}] {}", delta, id, dlc, data_string),
-                        Style::default())
-                    );
-        ListItem::new(line)
-    }).collect();
+            let line = Span::from(Span::styled(
+                format!("{:.3} {:08X} [{}] {}", delta, id, dlc, data_string),
+                Style::default(),
+            ));
+            ListItem::new(line)
+        })
+        .collect();
 
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(app.device_name.as_str()));
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(app.device_name.as_str()),
+    );
 
     f.render_widget(list, chunks[0]);
 }

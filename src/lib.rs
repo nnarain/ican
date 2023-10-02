@@ -5,14 +5,14 @@
 // @date Jul 15 2022
 //
 pub mod action;
-pub mod utils;
 pub mod drivers;
 pub mod frame;
+pub mod utils;
 
 use crate::drivers::AsyncCanDriverPtr;
 
-use std::{str::FromStr, fmt};
 use regex::Regex;
+use std::{fmt, str::FromStr};
 
 use clap::{Parser, Subcommand};
 use thiserror::Error;
@@ -46,19 +46,13 @@ impl FromStr for DriverOpts {
             let (_, [driver, opts]) = caps.extract();
 
             match driver {
-                "socketcan" => {
-                    Ok(DriverOpts::SocketCan(opts.to_string()))
-                },
-                _ => {
-                    Err(IcanParseErrors::InvalidDriver)
-                }
+                "socketcan" => Ok(DriverOpts::SocketCan(opts.to_string())),
+                _ => Err(IcanParseErrors::InvalidDriver),
             }
-        }
-        else {
+        } else {
             // If the expression doesn't match, just return the string as a SocketCAN driver option
             Ok(DriverOpts::SocketCan(s.to_string()))
         }
-
     }
 }
 
