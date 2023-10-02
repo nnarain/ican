@@ -93,8 +93,8 @@ pub enum Command {
     Monitor,
     /// Send CAN frames to the selected interface
     Send(action::send::Args),
-    // /// Bridge different CAN interfaces together
-    // Bridge,
+    /// Bridge different CAN interfaces together
+    Bridge(action::bridge::Args),
     // /// CANopen subcommands
     // #[clap(subcommand)]
     // Canopen(action::canopen::CanOpenCommands),
